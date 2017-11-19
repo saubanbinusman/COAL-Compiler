@@ -1,0 +1,3 @@
+PRINT "Hello, World!"
+PRINT "COAL Compiler Project"
+PRINT "Developed by: Sauban & Ammar"
