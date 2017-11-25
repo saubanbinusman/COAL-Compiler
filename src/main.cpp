@@ -1,8 +1,4 @@
 #include <map>
-#include <string>
-#include <cstring>
-#include <cstdlib>
-#include <utility>
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -16,92 +12,94 @@ typedef enum DataTypes
 	String = 4
 } DataType;
 
-
 map < pair<string, DataType>, void* > variables;
-ifstream inputFile;
-ofstream asmFile;
 
-string toString(int i)
+string firstWord(const string& line)
 {
-	stringstream ss;
-	ss << i;
-	return ss.str();
+	return line.substr(0, line.find_first_of(' '));
 }
 
 string filenameWithoutExt(char* fileName)
 {
-	string final = fileName;
-	
-	int dotLocation = final.find_last_of(".");
-	if (dotLocation != final.npos) final = final.substr(0, dotLocation);
-	
-	return final;
+	string withoutExt(fileName);
+	return withoutExt.substr(0, withoutExt.find_last_of('.'));
 }
 
-void writeIncludesAndDataSection()
+// Returns false if any error occurs during the process
+bool writeIncludesAndDataSection(stringstream& asmCode)
 {
-	asmFile << "INCLUDE Irvine32.inc\n\n";
-	asmFile << ".DATA\n";
+	asmCode << "INCLUDE Irvine32.inc\n\n";
+	asmCode << ".DATA\n";
 
-	for (map< pair<string, DataType>, void* >::iterator it = variables.begin(); it != variables.end(); it++)
+	for (auto it : variables)
 	{
 		string type;
 		bool strVal = false;
-		
-		switch(it -> first.second)
+
+		switch(it.first.second)
 		{
 			case Integer:
 				type = "DWORD";
 				break;
-			
+
 			case Character:
 				type = "BYTE";
 				break;
-			
+
 			case String:
 				type = "BYTE";
 				strVal = true;
 				break;
-			
+
 			default:
-				cout << "Invalid data type found in map. EXITING" << endl;
-				exit(EXIT_FAILURE);
-				break;
+				// Unknown type for a variable detected
+				return false;
 		}
-		
+
 		if (strVal)
 		{
-			string data(*(string*)(it -> second));
-			asmFile << (it -> first.first) << " " << type << " " << data << ", 0\n";
+			string data(*(string*)(it.second));
+			asmCode << (it.first.first) << " " << type << " " << data << ", 0\n";
 		}
-		
+
 		else
 		{
-			int data = *(int*)(it -> second);
-			asmFile << (it -> first.first) << " " << type << " " << data << "\n";
+			int data = *(int*)(it.second);
+			asmCode << (it.first.first) << " " << type << " " << data << "\n";
 		}
 	}
+
+	return true;
 }
 
-void startCodeSection()
+void startCodeSection(stringstream& asmCode)
 {
-	asmFile << "\n";
-	asmFile << ".CODE\n";
-	asmFile << "MAIN PROC\n";
+	asmCode << "\n";
+	asmCode << ".CODE\n";
+	asmCode << "MAIN PROC\n";
 }
 
-void endCodeSection()
+void endCodeSection(stringstream& asmCode)
 {
-	asmFile << "EXIT\n";
-	asmFile << "MAIN ENDP\n";
-	asmFile << "END MAIN\n";
+	asmCode << "EXIT\n";
+	asmCode << "MAIN ENDP\n";
+	asmCode << "END MAIN\n";
 }
 
-void writePrintStatement(string stringVarName)
+void writePrintStatement(const string& stringVarName, stringstream& asmCode)
 {
-	asmFile << "MOV EDX, OFFSET " << stringVarName << "\n";
-	asmFile << "CALL WriteString\n";
-	asmFile << "CALL CRLF\n";
+	asmCode << "MOV EDX, OFFSET " << stringVarName << "\n";
+	asmCode << "CALL WriteString\n";
+	asmCode << "CALL CRLF\n";
+}
+
+void writeAsmToFile(const char* fileName, stringstream& asmCode)
+{
+	ofstream output(fileName);
+
+	output << asmCode.str();
+
+	output.close();
 }
 
 int main(int argc, char** argv)
@@ -111,67 +109,95 @@ int main(int argc, char** argv)
 		cout << "Wrong number of arguments provided. Usage: compiler <Source File> <Compiled Output>" << endl;
 		exit(EXIT_FAILURE);
 	}
-	
-	inputFile.open(argv[1]);
-	
+
+	ifstream inputFile(argv[1]); // Opens the file provided as first argument in Read Mode
+
 	if (!inputFile.is_open())
 	{
 		cout << "ERROR: Cannot open input file. Exiting ..." << endl;
 		exit(EXIT_FAILURE);
 	}
-	
+
 	string currLine;
-	asmFile.open(string(filenameWithoutExt(argv[1]) + ".asm").c_str());
-	
+
 	// Reading the file and adding all the strings to the variables map
 	int printCounts = 0;
+
 	while (getline(inputFile, currLine))
 	{
-		if (currLine.compare(0, string("PRINT").size(), "PRINT") == 0)
+		string token = firstWord(currLine);
+
+		if (token == "PRINT")
 		{
 			printCounts++;
-			string variableName = "__p" + toString(printCounts);
-			
-			string* val = new string(currLine.substr(currLine.find_first_of("\"")));
-			
+			string variableName = "__p" + to_string(printCounts);
+
+			string* val = new string(currLine.substr(currLine.find_first_of('"')));
+
 			variables[make_pair(variableName, String)] = (void*)val;
 		}
 	}
-	
-	writeIncludesAndDataSection();
-	
+
+	stringstream asmCode;
+
+	// Checks if any error occurred during the process
+	if(!writeIncludesAndDataSection(asmCode))
+	{
+		cout << "Invalid data type found in variables map. EXITING" << endl;
+		inputFile.close();
+		exit(EXIT_FAILURE);
+	}
+
 	// Reset file pointer to start
 	inputFile.clear();
 	inputFile.seekg(0, ios::beg);
-		
+
 	// Read the file again, this time writing to code segment of assembly file
-	startCodeSection();
-	
+	startCodeSection(asmCode);
+
 	printCounts = 0;
+	int lineNumber = 0;
 	while (getline(inputFile, currLine))
 	{
-		if (currLine.compare(0, string("PRINT").size(), "PRINT") == 0)
+		lineNumber++;
+		string token = firstWord(currLine);
+
+		if (token == "PRINT")
 		{
 			printCounts++;
-			string variableName = "__p" + toString(printCounts);
-			
-			writePrintStatement(variableName);
+			string variableName = "__p" + to_string(printCounts);
+
+			writePrintStatement(variableName, asmCode);
+		}
+
+		else if (token == "COMMENT" || token.empty())
+		{
+			cout << "IGNORING A COMMENT" << endl;
+			continue;
+		}
+
+		else
+		{
+			cout << "ERROR @ Line " + to_string(lineNumber) + ": Invalid token " + token << endl;
+			inputFile.close();
+			exit(EXIT_FAILURE);
 		}
 	}
-	
-	endCodeSection();
-	
+
+	endCodeSection(asmCode);
+
 	inputFile.close();
-	asmFile.close();
-	
-	system(string("Assembler\\ml /c /nologo /Fo\"" + filenameWithoutExt(argv[1]) + ".obj\" /I \"Library\\Irvine\" " + filenameWithoutExt(argv[1]) + ".asm").c_str());
+
+	writeAsmToFile((filenameWithoutExt(argv[1]) + ".asm").c_str(), asmCode);
+
+	system(("Assembler\\ml /c /nologo /Fo\"" + filenameWithoutExt(argv[1]) + ".obj\" /I \"Library\\Irvine\" " + filenameWithoutExt(argv[1]) + ".asm").c_str());
 	cout << " Linking: " + filenameWithoutExt(argv[1]) + ".obj irvine32.lib kernel32.lib user32.lib" << endl;
-	system(string("Linker\\link /OUT:\"" + filenameWithoutExt(argv[2]) + ".exe\" \"irvine32.lib\" \"kernel32.lib\" \"user32.lib\" /NOLOGO /SUBSYSTEM:CONSOLE /LIBPATH:\"Library\\Irvine\" " + filenameWithoutExt(argv[1]) + ".obj").c_str());
+	system(("Linker\\link /OUT:\"" + filenameWithoutExt(argv[2]) + ".exe\" \"irvine32.lib\" \"kernel32.lib\" \"user32.lib\" /NOLOGO /SUBSYSTEM:CONSOLE /LIBPATH:\"Library\\Irvine\" " + filenameWithoutExt(argv[1]) + ".obj").c_str());
 	cout << " Saving: " + filenameWithoutExt(argv[2]) + ".exe" << endl;
 	cout << " Deleting: " + filenameWithoutExt(argv[1]) + ".obj" << endl;
-	system(string("del " +  filenameWithoutExt(argv[1]) + ".obj").c_str());
-	
+	system(("del " +  filenameWithoutExt(argv[1]) + ".obj").c_str());
+
 	cout << "\n DONE!" << endl;
-	
+
 	return 0;
 }
