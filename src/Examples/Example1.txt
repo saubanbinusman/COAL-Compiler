@@ -1,3 +1,27 @@
-PRINT "Hello, World!"
-PRINT "COAL Compiler Project"
-PRINT "Developed by: Sauban & Ammar"
+PRINTLINE "Hello, World!"
+PRINTLINE "COAL Compiler Project"
+PRINTLINE "Developed by: Sauban & Ammar"
+PRINTLINE " "
+
+LET x AS CHARACTER = 'H'
+PRINT x
+SET x = 'I'
+PRINT x
+SET x = '!'
+PRINT x
+
+NEWLINE
+
+LET y AS INTEGER = 50
+PRINTLINE y
+SET y = 100
+PRINTLINE y
+SET y = 150
+PRINTLINE y
+
+NEWLINE
+
+LET z AS STRING = "This is a string. :)"
+PRINTLINE z
+
+PAUSE
