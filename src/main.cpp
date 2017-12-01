@@ -1,4 +1,6 @@
 #include <map>
+#include <set>
+#include <regex>
 #include <vector>
 #include <fstream>
 #include <sstream>
@@ -33,7 +35,8 @@ enum DataTypes
 	BooleanType = 8
 };
 
-map <string, DataTypes> variables;
+map<string, DataTypes> variables;
+set<string> reservedWords;
 
 string toUpperCase(const string& str)
 {
@@ -45,6 +48,27 @@ string toUpperCase(const string& str)
 	}
 
 	return final;
+}
+
+bool fillReservedWords()
+{
+	ifstream reservedWordsFile("reserved.txt");
+
+	if (!reservedWordsFile.is_open()) return false;
+
+	string word;
+
+	while (reservedWordsFile >> word)
+	{
+		reservedWords.insert(word);
+	}
+
+	return true;
+}
+
+bool isReservedWord(const string& word)
+{
+	return reservedWords.find(toUpperCase(word)) != reservedWords.end();
 }
 
 string getASMDataSize(const string& type)
@@ -255,16 +279,15 @@ bool isValidLet(const vector<string>& tokens, int line)
 		return false;
 	}
 
-	// TODO: Use regex here and don't allow symbols in variable names, also don't allow MASM reserved words
-	if (tokens[1][0] == '_' && tokens[1][1] == '_')
+	if (!regex_match(tokens[1], regex("^[_A-Za-z][A-Za-z]*$")))
 	{
-		cout << "ERROR @ Line " << line << ": Variable names cannot start with __ (two underscores), they are reserved by language." << endl;
+		cout << "ERROR @ Line " << line << ": Variable name is not allowed to be used." << endl;
 		return false;
 	}
 
-	if (isdigit(tokens[1][0]))
+	if (isReservedWord(tokens[1]))
 	{
-		cout << "ERROR @ Line " << line << ": Variable names cannot start with a number." << endl;
+		cout << "ERROR @ Line " << line << ": Variable name is reserved by the compiler." << endl;
 		return false;
 	}
 
@@ -316,45 +339,39 @@ bool isValidLet(const vector<string>& tokens, int line)
 		}
 	}
 
-	else if (tokens[3] == "INTEGER")
+	if (tokens.size() == 6)
 	{
-		if (!(isdigit(tokens[5][0]) || tokens[5][0] == '-' || tokens[5][0] == '+'))
+		if (tokens[3] == "INTEGER")
 		{
-			cout << "ERROR @ Line " << line << ": Invalid value for an integer variable." << endl;
-			return false;
-		}
-
-		for (const auto& c : tokens[5])
-		{
-			if (!isdigit(c))
+			if (!regex_match(tokens[5], regex("^[+-]{0,1}\\d+$")))
 			{
 				cout << "ERROR @ Line " << line << ": Invalid value for an integer variable." << endl;
 				return false;
 			}
 		}
-	}
 
-	else if (tokens[3] == "CHARACTER")
-	{
-		if (tokens[5].size() != 3 || tokens[5][0] != '\'' || tokens[5][2] != '\'')
+		else if (tokens[3] == "CHARACTER")
 		{
-			cout << "ERROR @ Line " << line << ": Invalid Character literal." << endl;
-			return false;
+			if (tokens[5].size() != 3 || tokens[5][0] != '\'' || tokens[5][2] != '\'')
+			{
+				cout << "ERROR @ Line " << line << ": Invalid Character literal." << endl;
+				return false;
+			}
+
+			if (!isascii(tokens[5][1]))
+			{
+				cout << "ERROR @ Line " << line << ": Non-ASCII Characters are not supported." << endl;
+				return false;
+			}
 		}
 
-		if (!isascii(tokens[5][1]))
+		else if (tokens[3] == "BOOLEAN")
 		{
-			cout << "ERROR @ Line " << line << ": Non-ASCII Characters are not supported." << endl;
-			return false;
-		}
-	}
-
-	else if (tokens[3] == "BOOLEAN")
-	{
-		if (tokens[5] != "TRUE" || tokens[5] != "FALSE")
-		{
-			cout << "ERROR @ Line " << line << ": Invalid value for a boolean variable." << endl;
-			return false;
+			if (tokens[5] != "TRUE" || tokens[5] != "FALSE")
+			{
+				cout << "ERROR @ Line " << line << ": Invalid value for a boolean variable." << endl;
+				return false;
+			}
 		}
 	}
 
@@ -390,19 +407,10 @@ bool isValidSet(const vector<string>& tokens, int line)
 
 	else if (variables[tokens[1]] == IntegerType)
 	{
-		if (!(isdigit(tokens[3][0]) || tokens[3][0] == '-' || tokens[3][0] == '+'))
+		if (!regex_match(tokens[3], regex("^[+-]{0,1}\\d+$")))
 		{
 			cout << "ERROR @ Line " << line << ": Invalid value for an integer variable." << endl;
 			return false;
-		}
-
-		for (const auto& c : tokens[3])
-		{
-			if (!isdigit(c))
-			{
-				cout << "ERROR @ Line " << line << ": Invalid value for an integer variable." << endl;
-				return false;
-			}
 		}
 	}
 
@@ -470,6 +478,12 @@ int main(int argc, char** argv)
 	if (!inputFile.is_open())
 	{
 		cout << "ERROR: Cannot open input file. Exiting ..." << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	if (!fillReservedWords())
+	{
+		cout << "ERROR: Cannot open reserved words file. Exiting ..." << endl;
 		exit(EXIT_FAILURE);
 	}
 
