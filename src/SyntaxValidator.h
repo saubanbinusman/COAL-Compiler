@@ -4,6 +4,7 @@
 #include <regex>
 #include <vector>
 #include <iostream>
+#include <cctype>
 
 bool isValidPrint(const std::vector<std::string>&, const int&);
 bool isValidLet(const std::vector<std::string>&, const int&);

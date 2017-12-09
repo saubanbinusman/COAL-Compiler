@@ -102,72 +102,172 @@ void writeAsmToFile(const char* fileName, std::stringstream& dataSection, std::s
 	asmFile.close();
 }
 
-void writeADD(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
+void writeExpression(std::deque<std::string> expr, std::stringstream& codeSection, const std::string& varName)
 {
+	std::stack<std::string> operands;
+	
 	codeSection << "PUSH EAX\n";
 	codeSection << "PUSH EBX\n";
+	codeSection << "PUSH ECX\n";
+	codeSection << "PUSH EDX\n";
+	
+	while (!expr.empty())
+	{
+		std::cout << expr.front() << std::endl;
+		
+		if (isOperator(expr.front()))
+		{
+			if (expr.front() == "+")
+			{
+				writePOP("EBX", codeSection);
+				writePOP("EAX", codeSection);
+				
+				writeADD("EAX", "EBX", codeSection);
+				
+				writePUSH("EAX", codeSection);
+			}
+
+			else if (expr.front() == "-")
+			{
+				writePOP("EBX", codeSection);
+				writePOP("EAX", codeSection);
+				
+				writeSUB("EAX", "EBX", codeSection);
+				
+				writePUSH("EAX", codeSection);
+			}
+
+			else if (expr.front() == "*")
+			{
+				writePOP("EBX", codeSection);
+				writePOP("EAX", codeSection);
+				
+				writeMUL("EAX", "EBX", codeSection);
+				
+				writePUSH("EAX", codeSection);
+			}
+
+			else if (expr.front() == "/")
+			{
+				writePOP("EBX", codeSection);
+				writePOP("EAX", codeSection);
+				
+				writeDIV("EAX", "EBX", codeSection);
+				
+				writePUSH("EAX", codeSection);
+			}
+
+			else if (expr.front() == "%")
+			{
+				writePOP("EBX", codeSection);
+				writePOP("EAX", codeSection);
+				
+				writeMOD("EAX", "EBX", codeSection);
+				
+				writePUSH("EAX", codeSection);
+			}
+			
+			else if (expr.front() == "__p")
+			{
+				// Do nothing
+				// writePOP("EAX", codeSection);
+				// writePUSH("EAX", codeSection);
+			}
+			
+			else if (expr.front() == "__m")
+			{
+				writePOP("EAX", codeSection);
+				
+				writeNEG("EAX", codeSection);
+				
+				writePUSH("EAX", codeSection);
+			}
+
+			else
+			{
+				writePOP("EBX", codeSection);
+				writePOP("EAX", codeSection);
+				
+				writePOW("EAX", "EBX", codeSection);
+				
+				writePUSH("EAX", codeSection);
+			}
+		}
+
+		else
+		{
+			writePUSH(expr.front(), codeSection);
+		}
+		
+		expr.pop_front();
+	}
+	
+	codeSection << "POP " << varName << "\n";
+	
+	codeSection << "POP EDX\n";
+	codeSection << "POP ECX\n";
+	codeSection << "POP EBX\n";
+	codeSection << "POP EAX\n";
+}
+
+void writePUSH(const std::string& toPush, std::stringstream& codeSection)
+{
+	codeSection << "PUSH " << toPush << "\n";
+}
+
+void writePOP(const std::string& popTo, std::stringstream& codeSection)
+{
+	codeSection << "POP " << popTo << "\n";
+}
+
+void writeADD(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
+{
 	codeSection << "MOV EAX, " << op1 << "\n";
 	codeSection << "MOV EBX, " << op2 << "\n";
 	codeSection << "ADD EAX, EBX\n";
-	codeSection << "POP EBX\n";
-	codeSection << "POP EAX\n";
 }
 
 void writeSUB(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
 {
-	codeSection << "PUSH EAX\n";
-	codeSection << "PUSH EBX\n";
 	codeSection << "MOV EAX, " << op1 << "\n";
 	codeSection << "MOV EBX, " << op2 << "\n";
 	codeSection << "SUB EAX, EBX\n";
-	codeSection << "POP EBX\n";
-	codeSection << "POP EAX\n";
 }
 
 void writeMUL(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
 {
-	codeSection << "PUSH EAX\n";
-	codeSection << "PUSH EBX\n";
 	codeSection << "MOV EAX, " << op1 << "\n";
 	codeSection << "MOV EBX, " << op2 << "\n";
 	codeSection << "IMUL EBX\n";
-	codeSection << "POP EBX\n";
-	codeSection << "POP EAX\n";
 }
 
 void writeDIV(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
 {
-	codeSection << "PUSH EAX\n";
-	codeSection << "PUSH EBX\n";
 	codeSection << "XOR EDX, EDX\n";
 	codeSection << "MOV EAX, " << op1 << "\n";
 	codeSection << "MOV EBX, " << op2 << "\n";
 	codeSection << "IDIV EBX\n";
-	codeSection << "POP EBX\n";
-	codeSection << "POP EAX\n";
 }
 
 void writeMOD(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
 {
-	codeSection << "PUSH EAX\n";
-	codeSection << "PUSH EBX\n";
 	codeSection << "XOR EDX, EDX\n";
 	codeSection << "MOV EAX, " << op1 << "\n";
 	codeSection << "MOV EBX, " << op2 << "\n";
 	codeSection << "IDIV EBX\n";
-	codeSection << "POP EBX\n";
-	codeSection << "POP EAX\n";
+	codeSection << "MOV EAX, EDX\n";
+}
+
+void writeNEG(const std::string& op1, std::stringstream& codeSection)
+{
+	codeSection << "MOV EAX, " << op1 << "\n";
+	codeSection << "NEG EAX\n";
 }
 
 void writePOW(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
 {
-	codeSection << "PUSH EAX\n";
-	codeSection << "PUSH EBX\n";
-	codeSection << "PUSH ECX\n";
 	codeSection << "MOV ECX, " << op2 << "\n";
 	codeSection << "MOV EAX, " << op1 << "\n";
 	codeSection << "MOV EBX, " << op2 << "\n";
-	codeSection << "IDIV EBX\n";
-	codeSection << "POP EBX\n";
-	codeSection << "POP EAX\n";
+	codeSection << "IMUL EBX\n";
 }

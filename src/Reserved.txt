@@ -528,3 +528,4 @@ PRINT
 PRINTLINE
 NEWLINE
 AS
+ArithmeticTempReserved

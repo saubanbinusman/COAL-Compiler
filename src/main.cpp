@@ -1,3 +1,5 @@
+#define __USE_MINGW_ANSI_STDIO 0
+
 #include <regex>
 #include <iostream>
 #include <fstream>
@@ -7,7 +9,6 @@
 #include "SyntaxValidator.h"
 #include "AssemblyWriter.h"
 
-// TODO: +, -, *, /, %, ^
 // TODO: Define some input mechanism
 // TODO: <, >, <=, >=, ==, !=
 // TODO: AND, OR, NOT
@@ -20,7 +21,7 @@
 /// Language Specs:
 /// Case-Sensitive (All keywords are capital)
 /// Strongly Typed (Can't change variable data type after first initialization)
-/// Scoped Variables (Variables are only accessible within their definition-scope)
+/// Scoped 7 (Variables are only accessible within their definition-scope)
 /// Variable Types: CHARACTER (UNSIGNED, 1 BYTE), INTEGER (SIGNED, 4 BYTE), std::string (UNSIGNED, 1 BYTE SEQUENCE), BOOLEAN (UNSIGNED, 1 BYTE)
 /// std::string type variables can only be initialized at declaration stage, and values can't be changed after initialization
 /// Variable names cannot start with __ (two underscores) or a digit, cannot have spaces, cannot repeat variable names
@@ -77,7 +78,7 @@ int main(int argc, char** argv)
 				inputFile.close();
 				exit(EXIT_FAILURE);
 			}
-
+			
 			if (tokens[1][0] == '"')
 			{
 				printCounts++;
@@ -112,54 +113,24 @@ int main(int argc, char** argv)
 			}
 
 			std::string varName = tokens[1];
-			std::string value = tokens[3];
+			std::string value;
+			
+			for (int i = 3; i < tokens.size(); i++)
+			{
+				value += tokens[i];
+			}
 
 			if (getVariableType(varName) == IntegerType)
 			{
 				std::deque<std::string> expr = infixToPostfix(value, lineNumber);
-				std::stack<std::string> operands;
-
-				while (!expr.empty())
+				
+				if (expr.empty())
 				{
-					if (isOperator(expr.front()))
-					{
-						if (expr.front() == "+")
-						{
-
-						}
-
-						else if (expr.front() == "-")
-						{
-
-						}
-
-						else if (expr.front() == "*")
-						{
-
-						}
-
-						else if (expr.front() == "/")
-						{
-
-						}
-
-						else if (expr.front() == "%")
-						{
-
-						}
-
-						else
-						{
-
-						}
-					}
-
-					else
-					{
-						operands.push(expr.front());
-						expr.pop_front();
-					}
+					inputFile.close();
+					exit(EXIT_FAILURE);
 				}
+				
+				writeExpression(expr, codeSection, varName);
 			}
 
 			else writeSetStatement(varName, value, codeSection);
@@ -211,8 +182,8 @@ int main(int argc, char** argv)
 	std::cout << "\n DONE!" << std::endl;
 
 	// Runs the compiled executable
-	system("cls");
-	system("out.exe");
+	//system("cls");
+	//system("out.exe");
 
 	return 0;
 }

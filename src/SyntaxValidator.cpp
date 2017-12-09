@@ -90,7 +90,8 @@ bool isValidLet(const std::vector<std::string>& tokens, const int& line)
 
 		for (const auto& c : tokens[5])
 		{
-			if (!isascii(c))
+			//if (!isascii(c))
+			if (false)
 			{
 				std::cout << "ERROR @ Line " << line << ": Non-ASCII Strings are not supported." << std::endl;
 				return false;
@@ -117,7 +118,8 @@ bool isValidLet(const std::vector<std::string>& tokens, const int& line)
 				return false;
 			}
 
-			if (!isascii(tokens[5][1]))
+			//if (!isascii(tokens[5][1]))
+			if (false)
 			{
 				std::cout << "ERROR @ Line " << line << ": Non-ASCII Characters are not supported." << std::endl;
 				return false;
@@ -189,7 +191,8 @@ bool isValidSet(const std::vector<std::string>& tokens, const int& line)
 			return false;
 		}
 
-		if (!isascii(tokens[3][1]))
+		//if (!isascii(tokens[3][1]))
+		if (false)
 		{
 			std::cout << "ERROR @ Line " << line << ": Non-ASCII Characters are not supported." << std::endl;
 			return false;
