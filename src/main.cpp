@@ -100,7 +100,7 @@ int main(int argc, char** argv)
 			std::string varName = tokens[1];
 			variables[varName] = getEnumFromType(tokens[3]);
 
-			if (tokens[3] == "std::string") writeLetStatement(varName, escapeQuoteLiteral(tokens[5]), dataSection);
+			if (tokens[3] == "STRING") writeLetStatement(varName, escapeQuoteLiteral(tokens[5]), dataSection);
 			else writeLetStatement(varName, getASMDataSize(tokens[3]), tokens.size() == 6 ? tokens[5] : "?", dataSection);
 		}
 
@@ -113,15 +113,15 @@ int main(int argc, char** argv)
 			}
 
 			std::string varName = tokens[1];
-			std::string value;
-			
-			for (int i = 3; i < tokens.size(); i++)
-			{
-				value += tokens[i];
-			}
+			std::string value = tokens[3];
 
 			if (getVariableType(varName) == IntegerType)
 			{
+				for (int i = 4; i < tokens.size(); i++)
+				{
+					value += tokens[i];
+				}
+
 				std::deque<std::string> expr = infixToPostfix(value, lineNumber);
 				
 				if (expr.empty())
@@ -134,6 +134,19 @@ int main(int argc, char** argv)
 			}
 
 			else writeSetStatement(varName, value, codeSection);
+		}
+
+		else if (tokens[0] == "INPUT")
+		{
+			if (!isValidInput(tokens, lineNumber))
+			{
+				inputFile.close();
+				exit(EXIT_FAILURE);
+			}
+
+			std::string varName = tokens[1];
+
+			writeInputStatement(varName, codeSection);
 		}
 
 		else if (tokens[0] == "NEWLINE")
@@ -182,8 +195,8 @@ int main(int argc, char** argv)
 	std::cout << "\n DONE!" << std::endl;
 
 	// Runs the compiled executable
-	//system("cls");
-	//system("out.exe");
+	system("cls");
+	system("out.exe");
 
 	return 0;
 }

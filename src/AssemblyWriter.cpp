@@ -81,27 +81,6 @@ void writeSetStatement(const std::string& varName, const std::string& value, std
 	codeSection << "MOV " << varName << ", " << value << "\n";
 }
 
-void writeAsmToFile(const char* fileName, std::stringstream& dataSection, std::stringstream& codeSection)
-{
-	std::ofstream asmFile(fileName);
-
-	if (!asmFile.is_open())
-	{
-		std::cout << "An error occurred while writing assembly file." << std::endl;
-		exit(EXIT_FAILURE);
-	}
-
-	asmFile << "INCLUDE Irvine32.inc\n\n";
-	asmFile << ".DATA\n";
-	asmFile << dataSection.str();
-	asmFile << "\n\n";
-	asmFile << ".CODE\n";
-	asmFile << codeSection.str();
-
-	asmFile.flush();
-	asmFile.close();
-}
-
 void writeExpression(std::deque<std::string> expr, std::stringstream& codeSection, const std::string& varName)
 {
 	std::stack<std::string> operands;
@@ -113,8 +92,6 @@ void writeExpression(std::deque<std::string> expr, std::stringstream& codeSectio
 	
 	while (!expr.empty())
 	{
-		std::cout << expr.front() << std::endl;
-		
 		if (isOperator(expr.front()))
 		{
 			if (expr.front() == "+")
@@ -270,4 +247,55 @@ void writePOW(const std::string& op1, const std::string& op2, std::stringstream&
 	codeSection << "MOV EAX, " << op1 << "\n";
 	codeSection << "MOV EBX, " << op2 << "\n";
 	codeSection << "IMUL EBX\n";
+}
+
+void writeInputStatement(const std::string& varName, std::stringstream& codeSection)
+{
+	switch(getVariableType(varName))
+	{
+		case IntegerType:
+			codeSection << "CALL ReadInt\n";
+			codeSection << "MOV " << varName << ", EAX\n";
+			break;
+
+		case CharacterType:
+			// TODO: To allow data to be shown when being input, use following when possible
+			// codeSection << "MOV ECX, 1\n";
+			// codeSection << "MOV EDX, OFFSET " << varName << "\n";
+			// codeSection << "CALL ReadString\n";
+
+			codeSection << "CALL ReadChar\n";
+			codeSection << "MOV " << varName << ", AL\n";
+			break;
+
+		case BooleanType:
+			codeSection << "CALL ReadInt\n";
+			codeSection << "TEST EAX, EAX\n";
+			codeSection << "LAHF\n"; // Load flags into AH (ZF = 6th bit (starting from 0th bit from right to left))
+			codeSection << "SHR AH, 6\n";
+			codeSection << "AND AH, 1\n";
+			codeSection << "MOV " << varName << ", AH\n";
+			break;
+	}
+}
+
+void writeAsmToFile(const char* fileName, std::stringstream& dataSection, std::stringstream& codeSection)
+{
+	std::ofstream asmFile(fileName);
+
+	if (!asmFile.is_open())
+	{
+		std::cout << "An error occurred while writing assembly file." << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	asmFile << "INCLUDE Irvine32.inc\n\n";
+	asmFile << ".DATA\n";
+	asmFile << dataSection.str();
+	asmFile << "\n\n";
+	asmFile << ".CODE\n";
+	asmFile << codeSection.str();
+
+	asmFile.flush();
+	asmFile.close();
 }

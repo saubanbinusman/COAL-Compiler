@@ -9,6 +9,7 @@
 bool isValidPrint(const std::vector<std::string>&, const int&);
 bool isValidLet(const std::vector<std::string>&, const int&);
 bool isValidSet(const std::vector<std::string>&, const int&);
+bool isValidInput(const std::vector<std::string>&, const int&);
 bool isValidPause(const std::vector<std::string>&, const int&);
 bool isValidNewLine(const std::vector<std::string>&, const int&);
 

@@ -24,6 +24,7 @@ void writeDIV(const std::string&, const std::string&, std::stringstream&);
 void writeMOD(const std::string&, const std::string&, std::stringstream&);
 void writeNEG(const std::string&, std::stringstream&);
 void writePOW(const std::string&, const std::string&, std::stringstream&);
+void writeInputStatement(const std::string&, std::stringstream&);
 void writeAsmToFile(const char*, std::stringstream&, std::stringstream&);
 
 #endif //COAL_COMPILER_ASSEMBLYWRITER_H

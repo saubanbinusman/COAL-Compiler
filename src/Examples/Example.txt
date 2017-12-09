@@ -24,4 +24,6 @@ NEWLINE
 LET z AS STRING = "This is a string. :)"
 PRINTLINE z
 
+LET bro AS INTEGER = +5
+
 PAUSE

@@ -211,6 +211,30 @@ bool isValidSet(const std::vector<std::string>& tokens, const int& line)
 	return true;
 }
 
+// INPUT statement is defined as: INPUT <var>
+bool isValidInput(const std::vector<std::string>& tokens, const int& line)
+{
+	if (tokens.size() != 2)
+	{
+		std::cout << "ERROR @ Line " << line << ": Invalid number of parameters supplied to INPUT statement." << std::endl;
+		return false;
+	}
+
+	if (!isVariableDefined(tokens[1]))
+	{
+		std::cout << "ERROR @ Line " << line << ": Variable not declared." << std::endl;
+		return false;
+	}
+
+	if (getVariableType(tokens[0]) == StringType)
+	{
+		std::cout << "ERROR @ Line " << line << ": Changing value of STRING type variables is not supported." << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
 // PAUSE statement is defined as: PAUSE
 bool isValidPause(const std::vector<std::string>& tokens, const int& line)
 {
