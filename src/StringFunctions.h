@@ -3,6 +3,7 @@
 
 #include <stack>
 #include <deque>
+#include <regex>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -10,13 +11,22 @@
 #include "VariablesMap.h"
 
 std::string toUpperCase(const std::string&);
-bool isOperator(const std::string&);
-int getPrecedence(const std::string&);
-bool isLeftAssociative(const std::string&);
+std::string removeLeadingSpace(const std::string&);
+bool arithmetic_IsOperator(const std::string&);
+int arithmetic_GetPrecedence(const std::string&);
+bool arithmetic_IsLeftAssociative(const std::string&);
+std::vector<std::string> arithmetic_ExpressionTokenizer(const std::string&);
+std::deque<std::string> arithmetic_InfixToPostfix(const std::string&, const int&, const std::stack<std::string>&);
+bool logical_IsOperator(const std::string&);
+bool logical_IsComparator(const std::string&);
+int logical_GetPrecedence(const std::string&);
+bool logical_IsLeftAssociative(const std::string&);
+std::vector<std::string> logical_ExpressionTokenizer(const std::string&);
+std::deque<std::string> logical_InfixToPostfix(const std::string&, const int&, const std::stack<std::string>&);
 bool isNumericValue(const std::string&);
 std::string removeSpaces(const std::string&);
-std::vector<std::string> expressionTokenizer(const std::string&);
-std::deque<std::string> infixToPostfix(const std::string&, const int&);
+std::string removeBrackets(const std::string&);
+std::string removeSpacesAndBrackets(const std::string&);
 std::vector<std::string> tokenize(const std::string&);
 std::string escapeQuoteLiteral(const std::string&);
 std::string filenameWithoutExt(char*);

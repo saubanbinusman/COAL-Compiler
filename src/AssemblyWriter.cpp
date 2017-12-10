@@ -57,9 +57,15 @@ void writePrintStatement(const std::string& varName, const std::string& type, st
 	else
 	{
 		codeSection << "PUSH EAX\n";
+		codeSection << "PUSH EDX\n";
 		codeSection << "XOR EAX, EAX\n";
 		codeSection << "MOV AL, " << varName << "\n";
-		codeSection << "CALL WriteDec\n";
+		codeSection << "MOV BL, LENGTHOF FALSE_STR\n";
+		codeSection << "MUL BL\n";
+		codeSection << "MOV EDX, OFFSET FALSE_STR\n";
+		codeSection << "ADD EDX, EAX\n";
+		codeSection << "CALL WriteString\n";
+		codeSection << "PUSH EDX\n";
 		codeSection << "POP EAX\n";
 	}
 
@@ -81,7 +87,7 @@ void writeSetStatement(const std::string& varName, const std::string& value, std
 	codeSection << "MOV " << varName << ", " << value << "\n";
 }
 
-void writeExpression(std::deque<std::string> expr, std::stringstream& codeSection, const std::string& varName)
+void writeArithmeticExpression(std::deque<std::string> expr, std::stringstream& codeSection, const std::string& varName)
 {
 	std::stack<std::string> operands;
 	
@@ -92,88 +98,80 @@ void writeExpression(std::deque<std::string> expr, std::stringstream& codeSectio
 	
 	while (!expr.empty())
 	{
-		if (isOperator(expr.front()))
+		if (arithmetic_IsOperator(expr.front()))
 		{
 			if (expr.front() == "+")
 			{
-				writePOP("EBX", codeSection);
-				writePOP("EAX", codeSection);
-				
-				writeADD("EAX", "EBX", codeSection);
-				
-				writePUSH("EAX", codeSection);
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << "ADD EAX, EBX\n";
+				codeSection << "PUSH EAX\n";
 			}
 
 			else if (expr.front() == "-")
 			{
-				writePOP("EBX", codeSection);
-				writePOP("EAX", codeSection);
-				
-				writeSUB("EAX", "EBX", codeSection);
-				
-				writePUSH("EAX", codeSection);
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << "SUB EAX, EBX\n";
+				codeSection << "PUSH EAX\n";
 			}
 
 			else if (expr.front() == "*")
 			{
-				writePOP("EBX", codeSection);
-				writePOP("EAX", codeSection);
-				
-				writeMUL("EAX", "EBX", codeSection);
-				
-				writePUSH("EAX", codeSection);
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << "IMUL EBX\n";
+				codeSection << "PUSH EAX\n";
 			}
 
 			else if (expr.front() == "/")
 			{
-				writePOP("EBX", codeSection);
-				writePOP("EAX", codeSection);
-				
-				writeDIV("EAX", "EBX", codeSection);
-				
-				writePUSH("EAX", codeSection);
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << "XOR EDX, EDX\n";
+				codeSection << "IDIV EBX\n";
+				codeSection << "PUSH EAX\n";
 			}
 
 			else if (expr.front() == "%")
 			{
-				writePOP("EBX", codeSection);
-				writePOP("EAX", codeSection);
-				
-				writeMOD("EAX", "EBX", codeSection);
-				
-				writePUSH("EAX", codeSection);
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << "XOR EDX, EDX\n";
+				codeSection << "IDIV EBX\n";
+				codeSection << "PUSH EDX\n";
 			}
 			
 			else if (expr.front() == "__p")
 			{
 				// Do nothing
-				// writePOP("EAX", codeSection);
-				// writePUSH("EAX", codeSection);
 			}
 			
 			else if (expr.front() == "__m")
 			{
-				writePOP("EAX", codeSection);
-				
-				writeNEG("EAX", codeSection);
-				
-				writePUSH("EAX", codeSection);
+				codeSection << "POP EAX\n";
+				codeSection << "NEG EAX\n";
+				codeSection << "PUSH EAX\n";
 			}
 
 			else
 			{
-				writePOP("EBX", codeSection);
-				writePOP("EAX", codeSection);
-				
-				writePOW("EAX", "EBX", codeSection);
-				
-				writePUSH("EAX", codeSection);
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << "MOV ECX, EBX\n";
+				codeSection << "DEC ECX\n";
+				codeSection << "MOV EBX, EAX\n";
+				codeSection << ".WHILE (ECX)\n";
+				codeSection << "MUL EBX\n";
+				codeSection << "DEC ECX\n";
+				codeSection << ".ENDW\n";
+				codeSection << "PUSH EAX\n";
 			}
 		}
 
 		else
 		{
-			writePUSH(expr.front(), codeSection);
+			codeSection << "PUSH " << expr.front() << "\n";
 		}
 		
 		expr.pop_front();
@@ -187,66 +185,91 @@ void writeExpression(std::deque<std::string> expr, std::stringstream& codeSectio
 	codeSection << "POP EAX\n";
 }
 
-void writePUSH(const std::string& toPush, std::stringstream& codeSection)
+void writeLogicalExpression(std::deque<std::string> expr, std::stringstream& codeSection, const std::string& varName)
 {
-	codeSection << "PUSH " << toPush << "\n";
+	std::stack<std::string> operands;
+
+	codeSection << "XOR EAX, EAX\n";
+
+	while (!expr.empty())
+	{
+		if (logical_IsOperator(expr.front()))
+		{
+			if (expr.front() == "NOT")
+			{
+				codeSection << "POP EAX\n";
+				codeSection << "XOR AL, 1\n";
+				codeSection << "PUSH EAX\n";
+			}
+
+			else if (expr.front() == "AND")
+			{
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << "AND AL, BL\n";
+				codeSection << "PUSH EAX\n";
+			}
+
+			else if (expr.front() == "OR")
+			{
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << "OR AL, BL\n";
+				codeSection << "PUSH EAX\n";
+			}
+
+			else if (logical_IsComparator(expr.front()))
+			{
+				codeSection << "POP EBX\n";
+				codeSection << "POP EAX\n";
+				codeSection << ".IF (EAX " << expr.front() << " EBX)\n";
+				codeSection << "PUSH TRUE\n";
+				codeSection << ".ELSE\n";
+				codeSection << "PUSH FALSE\n";
+				codeSection << ".ENDIF\n";
+			}
+		}
+
+		else
+		{
+			if (expr.front() == "TRUE" || expr.front() == "FALSE" || getVariableType(expr.front()) == BooleanType)
+			{
+				codeSection << "MOV AL, " << expr.front() << "\n";
+				codeSection << "PUSH EAX\n";
+			}
+
+			else if (isNumericValue(expr.front()) || getVariableType(expr.front()) == IntegerType)
+			{
+				codeSection << "MOV EAX, " << expr.front() << "\n";
+				codeSection << "PUSH EAX\n";
+			}
+		}
+
+		expr.pop_front();
+	}
+
+	codeSection << "POP EAX\n";
+
+	if (!varName.empty())
+	{
+		codeSection << "MOV " << varName << ", AL\n";
+	}
 }
 
-void writePOP(const std::string& popTo, std::stringstream& codeSection)
+// Relies on EAX value from writeLogicalExpression() method
+void writeIfStatement(std::stringstream& codeSection)
 {
-	codeSection << "POP " << popTo << "\n";
+	codeSection << ".IF (EAX)\n";
 }
 
-void writeADD(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
+void writeElseStatement(std::stringstream& codeSection)
 {
-	codeSection << "MOV EAX, " << op1 << "\n";
-	codeSection << "MOV EBX, " << op2 << "\n";
-	codeSection << "ADD EAX, EBX\n";
+	codeSection << ".ELSE\n";
 }
 
-void writeSUB(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
+void writeEndIfStatement(std::stringstream& codeSection)
 {
-	codeSection << "MOV EAX, " << op1 << "\n";
-	codeSection << "MOV EBX, " << op2 << "\n";
-	codeSection << "SUB EAX, EBX\n";
-}
-
-void writeMUL(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
-{
-	codeSection << "MOV EAX, " << op1 << "\n";
-	codeSection << "MOV EBX, " << op2 << "\n";
-	codeSection << "IMUL EBX\n";
-}
-
-void writeDIV(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
-{
-	codeSection << "XOR EDX, EDX\n";
-	codeSection << "MOV EAX, " << op1 << "\n";
-	codeSection << "MOV EBX, " << op2 << "\n";
-	codeSection << "IDIV EBX\n";
-}
-
-void writeMOD(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
-{
-	codeSection << "XOR EDX, EDX\n";
-	codeSection << "MOV EAX, " << op1 << "\n";
-	codeSection << "MOV EBX, " << op2 << "\n";
-	codeSection << "IDIV EBX\n";
-	codeSection << "MOV EAX, EDX\n";
-}
-
-void writeNEG(const std::string& op1, std::stringstream& codeSection)
-{
-	codeSection << "MOV EAX, " << op1 << "\n";
-	codeSection << "NEG EAX\n";
-}
-
-void writePOW(const std::string& op1, const std::string& op2, std::stringstream& codeSection)
-{
-	codeSection << "MOV ECX, " << op2 << "\n";
-	codeSection << "MOV EAX, " << op1 << "\n";
-	codeSection << "MOV EBX, " << op2 << "\n";
-	codeSection << "IMUL EBX\n";
+	codeSection << ".ENDIF\n";
 }
 
 void writeInputStatement(const std::string& varName, std::stringstream& codeSection)
@@ -290,7 +313,12 @@ void writeAsmToFile(const char* fileName, std::stringstream& dataSection, std::s
 	}
 
 	asmFile << "INCLUDE Irvine32.inc\n\n";
+	asmFile << ".CONST\n";
+	asmFile << "FALSE EQU 0\n";
+	asmFile << "TRUE EQU 1\n";
 	asmFile << ".DATA\n";
+	asmFile << "FALSE_STR BYTE \"FALSE\", 0\n";
+	asmFile << "TRUE_STR BYTE \"TRUE\", 0\n";
 	asmFile << dataSection.str();
 	asmFile << "\n\n";
 	asmFile << ".CODE\n";

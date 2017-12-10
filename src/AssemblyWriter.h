@@ -14,16 +14,11 @@ void writePrintStatement(const std::string&, const std::string&, std::stringstre
 void writeLetStatement(const std::string&, const std::string&, const std::string&, std::stringstream&);
 void writeLetStatement(const std::string&, const std::string&, std::stringstream&);
 void writeSetStatement(const std::string&, const std::string&, std::stringstream&);
-void writeExpression(std::deque<std::string>, std::stringstream&, const std::string&);
-void writePUSH(const std::string&, std::stringstream&);
-void writePOP(const std::string&, std::stringstream&);
-void writeADD(const std::string&, const std::string&, std::stringstream&);
-void writeSUB(const std::string&, const std::string&, std::stringstream&);
-void writeMUL(const std::string&, const std::string&, std::stringstream&);
-void writeDIV(const std::string&, const std::string&, std::stringstream&);
-void writeMOD(const std::string&, const std::string&, std::stringstream&);
-void writeNEG(const std::string&, std::stringstream&);
-void writePOW(const std::string&, const std::string&, std::stringstream&);
+void writeArithmeticExpression(std::deque<std::string>, std::stringstream&, const std::string&);
+void writeLogicalExpression(std::deque<std::string>, std::stringstream&, const std::string&);
+void writeIfStatement(std::stringstream&);
+void writeElseStatement(std::stringstream&);
+void writeEndIfStatement(std::stringstream&);
 void writeInputStatement(const std::string&, std::stringstream&);
 void writeAsmToFile(const char*, std::stringstream&, std::stringstream&);
 

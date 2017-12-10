@@ -2,22 +2,16 @@
 #define COAL_COMPILER_VARIABLESMAP_H
 
 #include <map>
+#include <stack>
+#include "Variable.h"
 
-enum DataTypes
-{
-	IntegerType = 1,
-	CharacterType = 2,
-	StringType = 4,
-	BooleanType = 8
-};
-
-extern std::map<std::string, DataTypes> variables;
+extern std::map<std::string, Variable> variables;
 
 std::string getASMDataSize(const std::string&);
 std::string getTypeFromEnum(DataTypes);
 DataTypes getEnumFromType(const std::string&);
-bool isVariableDefined(const std::string&);
+bool isDefinedInAccessibleScopes(const std::string&, std::stack<std::string>);
 DataTypes getVariableType(const std::string&);
-void defineVariable(const std::string&, DataTypes);
+void defineVariable(const std::string&, const Variable&);
 
 #endif //COAL_COMPILER_VARIABLESMAP_H

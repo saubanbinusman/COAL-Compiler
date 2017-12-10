@@ -1,6 +1,6 @@
 #include "VariablesMap.h"
 
-std::map<std::string, DataTypes> variables;
+std::map<std::string, Variable> variables;
 
 std::string getASMDataSize(const std::string& type)
 {
@@ -27,17 +27,25 @@ DataTypes getEnumFromType(const std::string& type)
 	else return BooleanType;
 }
 
-bool isVariableDefined(const std::string& variableName)
+bool isDefinedInAccessibleScopes(const std::string& variableName, std::stack<std::string> scopes)
 {
-	return (variables.find(variableName) != variables.end());
+	if (variables.find(variableName) == variables.end()) return false;
+
+	while (!scopes.empty())
+	{
+		if (variables[variableName].scope == scopes.top()) return true;
+		scopes.pop();
+	}
+
+	return false;
 }
 
 DataTypes getVariableType(const std::string& variableName)
 {
-	return variables[variableName];
+	return variables[variableName].type;
 }
 
-void defineVariable(const std::string& variableName, DataTypes type)
+void defineVariable(const std::string& variableName, const Variable& variable)
 {
-	variables[variableName] = type;
+	variables[variableName] = variable;
 }
