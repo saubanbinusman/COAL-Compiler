@@ -1,20 +1,29 @@
-METHOD sum TAKES x AS INTEGER, RETURNS INTEGER
+METHOD factorial TAKES x AS INTEGER, RETURNS INTEGER
 	LET retVal AS INTEGER
 	LET argToFunc AS INTEGER
 	
-	IF (x == 0)
-		RETURN 0
+	IF (x == 2)
+		RETURN 2
 	ELSE
-		SET argToFunc = x - 1
-		SET retVal = CALL sum(argToFunc)
-		SET retVal = retVal + x
-		RETURN retVal
+		IF (x == 1 OR x == 0)
+			RETURN 1
+		ELSE
+			SET argToFunc = x - 1
+			SET retVal = CALL factorial(argToFunc)
+			SET retVal = x * retVal
+			RETURN retVal
+		ENDIF
 	ENDIF
 ENDMETHOD
 
 METHOD MAIN RETURNS NOTHING
+	LET n AS INTEGER
+	PRINT "Enter value of "n" to calculate Fibonacci Recursively: "
+	INPUT n
 	LET finalValue AS INTEGER
-	SET finalValue = CALL sum(6)
-
+	SET finalValue = CALL factorial(n)
+	PRINT "Value of f("
+	PRINT n
+	PRINT "): "
 	PRINTLINE finalValue
 ENDMETHOD

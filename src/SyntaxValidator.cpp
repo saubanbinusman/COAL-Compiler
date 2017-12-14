@@ -251,7 +251,7 @@ bool isValidInput(const std::vector<std::string>& tokens, const int& line, const
 		return false;
 	}
 
-	if (getVariableType(tokens[0]) == StringType)
+	if (getVariableType(tokens[1]) == StringType)
 	{
 		std::cout << "ERROR @ Line " << line << ": Changing value of STRING type variables is not supported." << std::endl;
 		return false;
