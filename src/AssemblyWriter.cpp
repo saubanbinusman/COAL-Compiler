@@ -1,25 +1,4 @@
 #include "AssemblyWriter.h"
-#include "StringFunctions.h"
-
-void startProc(const std::string& procName, std::stringstream& codeSection)
-{
-	codeSection << toUpperCase(procName) << " PROC\n";
-}
-
-void endProc(const std::string& procName, std::stringstream& codeSection)
-{
-	if (procName == "MAIN")
-	{
-		codeSection << "EXIT\n";
-		codeSection << "MAIN ENDP\n";
-		codeSection << "END MAIN\n";
-	}
-
-	else
-	{
-		codeSection << toUpperCase(procName) << " ENDP\n";
-	}
-}
 
 void writePrintStatement(const std::string& varName, const std::string& toPrint, std::stringstream& dataSection, std::stringstream& codeSection, bool newLine)
 {
@@ -34,47 +13,63 @@ void writePrintStatement(const std::string& varName, const std::string& type, st
 {
 	if (type == "STRING")
 	{
-		codeSection << "MOV EDX, OFFSET " << varName << "\n";
+		if (getVariableObject(varName).reference) codeSection << "MOV EDX, " << varName << "\n";
+		else codeSection << "MOV EDX, OFFSET " << varName << "\n";
 		codeSection << "CALL WriteString\n";
 	}
 
 	else if (type == "INTEGER")
 	{
-		codeSection << "PUSH EAX\n";
-		codeSection << "MOV EAX, " << varName << "\n";
+		if (getVariableObject(varName).reference)
+		{
+			codeSection << "MOV EBX, " << varName << "\n";
+			codeSection << "MOV EAX, [EBX]\n";
+		}
+
+		else codeSection << "MOV EAX, " << varName << "\n";
+
 		codeSection << "CALL WriteInt\n";
-		codeSection << "POP EAX\n";
 	}
 
 	else if (type == "CHARACTER")
 	{
-		codeSection << "PUSH EAX\n";
-		codeSection << "MOV AL, " << varName << "\n";
+		if (getVariableObject(varName).reference)
+		{
+			codeSection << "MOV EBX, " << varName << "\n";
+			codeSection << "MOV AL, [EBX]\n";
+		}
+
+		else codeSection << "MOV AL, " << varName << "\n";
+
 		codeSection << "CALL WriteChar\n";
-		codeSection << "POP EAX\n";
 	}
 
 	else
 	{
-		codeSection << "PUSH EAX\n";
-		codeSection << "PUSH EDX\n";
 		codeSection << "XOR EAX, EAX\n";
-		codeSection << "MOV AL, " << varName << "\n";
+
+		if (getVariableObject(varName).reference)
+		{
+			codeSection << "MOV EBX, " << varName << "\n";
+			codeSection << "MOV AL, [EBX]\n";
+		}
+
+		else codeSection << "MOV AL, " << varName << "\n";
+
 		codeSection << "MOV BL, LENGTHOF FALSE_STR\n";
 		codeSection << "MUL BL\n";
 		codeSection << "MOV EDX, OFFSET FALSE_STR\n";
 		codeSection << "ADD EDX, EAX\n";
 		codeSection << "CALL WriteString\n";
-		codeSection << "PUSH EDX\n";
-		codeSection << "POP EAX\n";
 	}
 
 	if (newLine) codeSection << "CALL CRLF\n";
 }
 
-void writeLetStatement(const std::string& varName, const std::string& size, const std::string& initialValue, std::stringstream& dataSection)
+void writeLetStatement(const std::string& varName, const std::string& size, const std::string& initialValue, std::stringstream& dataSection, std::stringstream& dataInitial)
 {
-	dataSection << varName << " " << size << " " << initialValue << "\n";
+	dataSection << "LOCAL " << varName << ":" << size << "\n";
+	dataInitial << "MOV " << varName << ", " << initialValue << "\n";
 }
 
 void writeLetStatement(const std::string& varName, const std::string& value, std::stringstream& dataSection)
@@ -82,19 +77,45 @@ void writeLetStatement(const std::string& varName, const std::string& value, std
 	dataSection << varName << " BYTE " << value << ", 0\n";
 }
 
-void writeSetStatement(const std::string& varName, const std::string& value, std::stringstream& codeSection)
+void writeSetStatementForChar(const std::string& varName, const std::string& value, std::stringstream& codeSection)
 {
-	codeSection << "MOV " << varName << ", " << value << "\n";
+	if (getVariableObject(varName).reference)
+	{
+		codeSection << "MOV EBX, " << varName << "\n";
+		codeSection << "MOV AL, " << value << "\n";
+		codeSection << "MOV [EBX], AL\n";
+	}
+
+	else
+	{
+		codeSection << "MOV AL, " << value << "\n";
+		codeSection << "MOV " << varName << ", AL\n";
+	}
+}
+
+// Relies on ESI value from writeCallStatement() method
+void writeSetStatementForCall(const std::string& varName, std::stringstream& codeSection)
+{
+	codeSection << "MOV EAX, ESI\n";
+
+	if (getVariableObject(varName).reference)
+	{
+		codeSection << "MOV EBX, " << varName << "\n";
+
+		if (getVariableType(varName) == IntegerType) codeSection << "MOV [EBX], EAX\n";
+		else codeSection << "MOV [EBX], AL\n";
+	}
+
+	else
+	{
+		if (getVariableType(varName) == IntegerType) codeSection << "MOV " << varName << ", EAX\n";
+		else codeSection << "MOV " << varName << ", AL\n";
+	}
 }
 
 void writeArithmeticExpression(std::deque<std::string> expr, std::stringstream& codeSection, const std::string& varName)
 {
 	std::stack<std::string> operands;
-	
-	codeSection << "PUSH EAX\n";
-	codeSection << "PUSH EBX\n";
-	codeSection << "PUSH ECX\n";
-	codeSection << "PUSH EDX\n";
 	
 	while (!expr.empty())
 	{
@@ -154,6 +175,7 @@ void writeArithmeticExpression(std::deque<std::string> expr, std::stringstream& 
 				codeSection << "PUSH EAX\n";
 			}
 
+			// Naive Exponentiation ASM Code
 			else
 			{
 				codeSection << "POP EBX\n";
@@ -169,20 +191,38 @@ void writeArithmeticExpression(std::deque<std::string> expr, std::stringstream& 
 			}
 		}
 
+		// Is a value or variable
 		else
 		{
-			codeSection << "PUSH " << expr.front() << "\n";
+			if (isVariableDefinedInAllScopes(expr.front()))
+			{
+				if (getVariableObject(expr.front()).reference)
+				{
+					codeSection << "MOV EBX, " << expr.front() << "\n";
+					codeSection << "MOV EAX, [EBX]\n";
+					codeSection << "PUSH EAX\n";
+				}
+
+				else codeSection << "PUSH " << expr.front() << "\n";
+			}
+
+			else codeSection << "PUSH " << expr.front() << "\n";
 		}
 		
 		expr.pop_front();
 	}
-	
-	codeSection << "POP " << varName << "\n";
-	
-	codeSection << "POP EDX\n";
-	codeSection << "POP ECX\n";
-	codeSection << "POP EBX\n";
-	codeSection << "POP EAX\n";
+
+	if (getVariableObject(varName).reference)
+	{
+		codeSection << "MOV EBX, " << varName << "\n";
+		codeSection << "POP EAX\n";
+		codeSection << "MOV [EBX], EAX\n";
+	}
+
+	else
+	{
+		codeSection << "POP " << varName << "\n";
+	}
 }
 
 void writeLogicalExpression(std::deque<std::string> expr, std::stringstream& codeSection, const std::string& varName)
@@ -232,17 +272,45 @@ void writeLogicalExpression(std::deque<std::string> expr, std::stringstream& cod
 
 		else
 		{
-			if (expr.front() == "TRUE" || expr.front() == "FALSE" || getVariableType(expr.front()) == BooleanType)
+			if (expr.front() == "TRUE" || expr.front() == "FALSE")
 			{
 				codeSection << "MOV AL, " << expr.front() << "\n";
-				codeSection << "PUSH EAX\n";
 			}
 
-			else if (isNumericValue(expr.front()) || getVariableType(expr.front()) == IntegerType)
+			else if (isNumericValue(expr.front()))
 			{
 				codeSection << "MOV EAX, " << expr.front() << "\n";
-				codeSection << "PUSH EAX\n";
 			}
+
+			else if (getVariableType(expr.front()) == BooleanType)
+			{
+				if (getVariableObject(expr.front()).reference)
+				{
+					codeSection << "MOV EBX, " << expr.front() << "\n";
+					codeSection << "MOV AL, [EBX]\n";
+				}
+
+				else
+				{
+					codeSection << "MOV AL, " << expr.front() << "\n";
+				}
+			}
+
+			else if (getVariableType(expr.front()) == IntegerType)
+			{
+				if (getVariableObject(expr.front()).reference)
+				{
+					codeSection << "MOV EBX, " << expr.front() << "\n";
+					codeSection << "MOV EAX, [EBX]\n";
+				}
+
+				else
+				{
+					codeSection << "MOV EAX, " << expr.front() << "\n";
+				}
+			}
+
+			codeSection << "PUSH EAX\n";
 		}
 
 		expr.pop_front();
@@ -252,7 +320,13 @@ void writeLogicalExpression(std::deque<std::string> expr, std::stringstream& cod
 
 	if (!varName.empty())
 	{
-		codeSection << "MOV " << varName << ", AL\n";
+		if (getVariableObject(varName).reference)
+		{
+			codeSection << "MOV EBX, " << varName << "\n";
+			codeSection << "MOV [EBX], AL\n";
+		}
+
+		else codeSection << "MOV " << varName << ", AL\n";
 	}
 }
 
@@ -270,6 +344,135 @@ void writeElseStatement(std::stringstream& codeSection)
 void writeEndIfStatement(std::stringstream& codeSection)
 {
 	codeSection << ".ENDIF\n";
+}
+
+void writeMethodStatement(const std::string& methodName, const std::vector<Parameter>& paramList, std::stringstream& codeSection)
+{
+	codeSection << methodName << " PROC";
+
+	if (paramList.size() != 0) codeSection << " ";
+
+	for (int i = 0; i < paramList.size(); i++)
+	{
+		defineVariable(paramList[i].name, Variable(paramList[i].type, methodName, paramList[i].reference || paramList[i].type == StringType));
+		codeSection << paramList[i].name << ":";
+		if (paramList[i].reference || paramList[i].type == StringType) codeSection << "PTR ";
+		codeSection << getASMDataSize(getTypeFromEnum(paramList[i].type));
+		if (i != paramList.size() - 1) codeSection << ", ";
+	}
+
+	codeSection << "\n";
+}
+
+void writeEndMethodStatement(const std::string& methodName, std::stringstream& codeSection)
+{
+	if (methodName == "MAIN")
+	{
+		codeSection << "EXIT\n";
+		codeSection << "MAIN ENDP\n";
+		codeSection << "END MAIN\n";
+	}
+
+	else
+	{
+		switch (getMethodReturnType(methodName))
+		{
+			case BooleanType:
+				codeSection << "MOV ESI, FALSE\n";
+				break;
+
+			case CharacterType:
+				codeSection << "MOV ESI, 'A'\n";
+				break;
+
+			case IntegerType:
+				codeSection << "MOV ESI, 0\n";
+				break;
+		}
+
+		codeSection << "RET\n";
+		codeSection << toUpperCase(methodName) << " ENDP\n";
+	}
+}
+
+void writeReturnStatement(const std::string& methodName, const std::string& value, std::stringstream& codeSection)
+{
+	if (value.empty())
+	{
+		codeSection << "RET\n";
+	}
+
+	else
+	{
+		switch (getMethodReturnType(methodName))
+		{
+			case BooleanType:
+				codeSection << "XOR EDX, EDX\n";
+				codeSection << "MOV DL, " << value;
+				codeSection << "MOV ESI, EDX\n";
+				break;
+
+			case CharacterType:
+				codeSection << "XOR EDX, EDX\n";
+				codeSection << "MOV DL, " << value;
+				codeSection << "MOV ESI, EDX\n";
+				break;
+
+			case IntegerType:
+				codeSection << "MOV ESI, " << value << "\n";
+				break;
+		}
+
+		codeSection << "RET\n";
+	}
+}
+
+void writeCallStatement(const std::string& methodName, const std::vector<std::string>& callTokens, std::stringstream& codeSection)
+{
+	codeSection << "INVOKE " << methodName;
+
+	if (callTokens.size() > 2)
+	{
+		codeSection << ", ";
+
+		const std::vector<Parameter>& params = getMethodParameters(methodName);
+
+		for (int i = 2; i < callTokens.size(); i++)
+		{
+			// No need to check for specific scope because it is already checked in isValidCall() function
+			if (isVariableDefinedInAllScopes(callTokens[i]))
+			{
+				if (getVariableObject(callTokens[i]).reference && params[i - 2].reference)
+				{
+					codeSection << callTokens[i];
+				}
+
+				else if (getVariableObject(callTokens[i]).reference && !params[i - 2].reference)
+				{
+
+				}
+
+				else if (!getVariableObject(callTokens[i]).reference && params[i - 2].reference)
+				{
+					codeSection << "ADDR " << callTokens[i];
+				}
+
+				else
+				{
+					codeSection << callTokens[i];
+				}
+			}
+
+			else
+			{
+				codeSection << callTokens[i];
+			}
+
+			if (i != callTokens.size() - 1) codeSection << ", ";
+		}
+	}
+
+	codeSection << "\n";
 }
 
 void writeInputStatement(const std::string& varName, std::stringstream& codeSection)
@@ -315,12 +518,12 @@ void writeAsmToFile(const char* fileName, std::stringstream& dataSection, std::s
 	asmFile << "INCLUDE Irvine32.inc\n\n";
 	asmFile << ".CONST\n";
 	asmFile << "FALSE EQU 0\n";
-	asmFile << "TRUE EQU 1\n";
+	asmFile << "TRUE EQU 1\n\n";
 	asmFile << ".DATA\n";
 	asmFile << "FALSE_STR BYTE \"FALSE\", 0\n";
 	asmFile << "TRUE_STR BYTE \"TRUE\", 0\n";
 	asmFile << dataSection.str();
-	asmFile << "\n\n";
+	asmFile << "\n";
 	asmFile << ".CODE\n";
 	asmFile << codeSection.str();
 

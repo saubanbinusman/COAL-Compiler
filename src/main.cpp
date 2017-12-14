@@ -9,18 +9,7 @@
 #include "SyntaxValidator.h"
 #include "AssemblyWriter.h"
 
-// TODO: Functions + Recursion
-// TODO: Loops + Nested Loops
-
-/// Language Specs:
-/// Case-Sensitive (All keywords are capital)
-/// Strongly Typed (Can't change variable data type after first initialization)
-/// Scoped 7 (Variables are only accessible within their definition-scope)
-/// Variable Types: CHARACTER (UNSIGNED, 1 BYTE), INTEGER (SIGNED, 4 BYTE), std::string (UNSIGNED, 1 BYTE SEQUENCE), BOOLEAN (UNSIGNED, 1 BYTE)
-/// std::string type variables can only be initialized at declaration stage, and values can't be changed after initialization
-/// Variable names cannot start with __ (two underscores) or a digit, cannot have spaces, cannot repeat variable names
-/// LET is used to declare/initialize a variable
-/// After variable is declared using LET, SET is used for changing the value stored in it
+// TODO: Loops
 
 int main(int argc, char** argv)
 {
@@ -46,18 +35,19 @@ int main(int argc, char** argv)
 
 	std::stringstream dataSection;
 	std::stringstream codeSection;
+	std::stringstream methodData;
+	std::stringstream methodDataInitial;
+	std::stringstream methodCode;
 
 	std::string currLine;
 
-	// Reading the file and adding all the std::strings to the variables map
 	int printCounts = 0;
 	int scopeNumber = 0;
 	int lineNumber = 0;
 
 	std::stack<std::string> scopeStack;
-	scopeStack.push("GLOBAL");
 
-	startProc("MAIN", codeSection);
+	scopeStack.push("GLOBAL");
 
 	while (getline(inputFile, currLine))
 	{
@@ -82,12 +72,12 @@ int main(int argc, char** argv)
 			{
 				printCounts++;
 				std::string varName = "__p" + std::to_string(printCounts);
-				writePrintStatement(varName, escapeQuoteLiteral(tokens[1]), dataSection, codeSection, tokens[0] == "PRINTLINE");
+				writePrintStatement(varName, escapeQuoteLiteral(tokens[1]), dataSection, methodCode, tokens[0] == "PRINTLINE");
 			}
 
 			else
 			{
-				writePrintStatement(tokens[1], getTypeFromEnum(variables[tokens[1]].type), codeSection, tokens[0] == "PRINTLINE");
+				writePrintStatement(tokens[1], getTypeFromEnum(getVariableObject(tokens[1]).type), methodCode, tokens[0] == "PRINTLINE");
 			}
 		}
 
@@ -99,11 +89,26 @@ int main(int argc, char** argv)
 				exit(EXIT_FAILURE);
 			}
 
-			std::string varName = tokens[1];
+			const std::string& varName = tokens[1];
 			defineVariable(varName, Variable(getEnumFromType(tokens[3]), scopeStack.top()));
 
-			if (tokens[3] == "STRING") writeLetStatement(varName, escapeQuoteLiteral(tokens[5]), dataSection);
-			else writeLetStatement(varName, getASMDataSize(tokens[3]), tokens.size() == 6 ? tokens[5] : "0", dataSection);
+			if (tokens[3] == "STRING")
+			{
+				writeLetStatement(varName, escapeQuoteLiteral(tokens[5]), dataSection);
+			}
+
+			else
+			{
+				std::string val;
+				if (tokens.size() == 6) val = tokens[5];
+				else
+				{
+					if (tokens[3] == "INTEGER" || tokens[3] == "BOOLEAN") val = "0";
+					else val = "'A'";
+				}
+
+				writeLetStatement(varName, getASMDataSize(tokens[3]), val, methodData, methodDataInitial);
+			}
 		}
 
 		else if (tokens[0] == "SET")
@@ -114,37 +119,52 @@ int main(int argc, char** argv)
 				exit(EXIT_FAILURE);
 			}
 
-			std::string varName = tokens[1];
+			const std::string& varName = tokens[1];
 			std::string value = tokens[3];
 
-			if (getVariableType(varName) != IntegerType && getVariableType(varName) != BooleanType) writeSetStatement(varName, value, codeSection);
-			else
+			if (tokens[3] == "CALL")
 			{
 				for (int i = 4; i < tokens.size(); i++)
 				{
 					value += " " + tokens[i];
 				}
 
-				std::deque<std::string> expr;
-				if (getVariableType(varName) == IntegerType) expr = arithmetic_InfixToPostfix(value, lineNumber, scopeStack);
-				else expr = logical_InfixToPostfix(value, lineNumber, scopeStack);
+				std::vector<std::string> callTokens = regexTokenize(value, std::regex("[^\\s(,)]+"));
+				writeCallStatement(callTokens[1], callTokens, methodCode);
+				writeSetStatementForCall(varName, methodCode);
+			}
 
-				if (expr.empty())
-				{
-					inputFile.close();
-					exit(EXIT_FAILURE);
-				}
-
-				if (getVariableType(varName) == IntegerType) writeArithmeticExpression(expr, codeSection, varName);
+			else
+			{
+				if (getVariableType(varName) == CharacterType) writeSetStatementForChar(varName, value, methodCode);
 				else
 				{
-					if (!isValidLogicalExpression(expr, lineNumber))
+					for (int i = 4; i < tokens.size(); i++)
+					{
+						value += " " + tokens[i];
+					}
+
+					std::deque<std::string> expr;
+					if (getVariableType(varName) == IntegerType) expr = arithmetic_InfixToPostfix(value, lineNumber, scopeStack);
+					else expr = logical_InfixToPostfix(value, lineNumber, scopeStack);
+
+					if (expr.empty())
 					{
 						inputFile.close();
 						exit(EXIT_FAILURE);
 					}
 
-					writeLogicalExpression(expr, codeSection, varName);
+					if (getVariableType(varName) == IntegerType) writeArithmeticExpression(expr, methodCode, varName);
+					else
+					{
+						if (!isValidLogicalExpression(expr, lineNumber))
+						{
+							inputFile.close();
+							exit(EXIT_FAILURE);
+						}
+
+						writeLogicalExpression(expr, methodCode, varName);
+					}
 				}
 			}
 		}
@@ -173,8 +193,8 @@ int main(int argc, char** argv)
 				exit(EXIT_FAILURE);
 			}
 
-			writeLogicalExpression(expr, codeSection, "");
-			writeIfStatement(codeSection);
+			writeLogicalExpression(expr, methodCode, "");
+			writeIfStatement(methodCode);
 
 			scopeNumber++;
 			scopeStack.push(std::to_string(scopeNumber) + "IF");
@@ -182,20 +202,118 @@ int main(int argc, char** argv)
 
 		else if (tokens[0] == "ELSE")
 		{
-			writeElseStatement(codeSection);
+			writeElseStatement(methodCode);
 		}
 
 		else if (tokens[0] == "ENDIF")
 		{
-			if (!isValidEndIf(tokens, lineNumber, scopeStack.top(), scopeStack.size() - 1))
+			std::stack<std::string> temp = scopeStack;
+			int closingNumber = -1;
+			while (!temp.empty())
+			{
+				const std::string& top = temp.top();
+				if (top[top.size() - 2] == 'I' && top[top.size() - 1] == 'F')
+				{
+					closingNumber = std::stoi(top);
+					break;
+				}
+
+				temp.pop();
+			}
+
+			if (closingNumber == -1)
+			{
+				std::cout << "ERROR @ Line " << lineNumber << ": Improper IF/ENDIF pairs are causing an error." << std::endl;
+				inputFile.close();
+				exit(EXIT_FAILURE);
+			}
+
+			if (!isValidEndIf(tokens, lineNumber, scopeStack.top(), closingNumber))
 			{
 				inputFile.close();
 				exit(EXIT_FAILURE);
 			}
 
-			writeEndIfStatement(codeSection);
+			writeEndIfStatement(methodCode);
 
 			scopeStack.pop();
+		}
+
+		else if (tokens[0] == "METHOD")
+		{
+			if (!isValidMethod(tokens, removeLeadingSpace(currLine), lineNumber, scopeStack.top()))
+			{
+				inputFile.close();
+				exit(EXIT_FAILURE);
+			}
+
+			std::vector<std::string> methodTokens = regexTokenize(removeLeadingSpace(currLine), std::regex("[^\\s,]+"));
+			std::vector<Parameter> parametersList;
+
+			for (int i = 3; i < methodTokens.size() - 2; i += 3)
+			{
+				Parameter p(methodTokens[i], getEnumFromType(methodTokens[i + 2]), false);
+				if (i + 3 != methodTokens.size() - 2 && methodTokens[i + 3] == "REF")
+				{
+					p.reference = true;
+					i++;
+				}
+
+				parametersList.push_back(p);
+			}
+
+			const std::string& methodName = methodTokens[1];
+			const std::string& returnType = methodTokens[methodTokens.size() - 1];
+			defineMethod(Method(methodName, parametersList, getEnumFromType(returnType), false));
+			scopeStack.push(methodName);
+			writeMethodStatement(methodName, parametersList, codeSection);
+		}
+
+		else if (tokens[0] == "ENDMETHOD")
+		{
+			if (!isValidEndMethod(tokens, lineNumber, scopeStack.top()))
+			{
+				inputFile.close();
+				exit(EXIT_FAILURE);
+			}
+
+			codeSection << methodData.str() << methodDataInitial.str() << "\n";
+			codeSection << methodCode.str() << "\n";
+			writeEndMethodStatement(scopeStack.top(), codeSection);
+			codeSection << "\n";
+
+			methodData.str(std::string());
+			methodDataInitial.str(std::string());
+			methodCode.str(std::string());
+			methodDataInitial.clear();
+			methodData.clear();
+			methodCode.clear();
+
+			scopeStack.pop();
+		}
+
+		else if (tokens[0] == "CALL")
+		{
+			if (!isValidCall(tokens, removeLeadingSpace(currLine), lineNumber, scopeStack))
+			{
+				inputFile.close();
+				exit(EXIT_FAILURE);
+			}
+
+			const std::vector<std::string>& callTokens = regexTokenize(removeLeadingSpace(currLine), std::regex("[^\\s(,)]+"));
+			writeCallStatement(callTokens[1], callTokens, methodCode);
+		}
+
+		else if (tokens[0] == "RETURN")
+		{
+			if (!isValidReturn(tokens, lineNumber, scopeStack))
+			{
+				inputFile.close();
+				exit(EXIT_FAILURE);
+			}
+
+			writeReturnStatement(getMethodInCurrentScope(scopeStack), tokens.size() == 2 ? tokens[1] : std::string(), methodCode);
+			getMethodObject(getMethodInCurrentScope(scopeStack)).returned = true;
 		}
 
 		else if (tokens[0] == "INPUT")
@@ -206,9 +324,8 @@ int main(int argc, char** argv)
 				exit(EXIT_FAILURE);
 			}
 
-			std::string varName = tokens[1];
-
-			writeInputStatement(varName, codeSection);
+			const std::string& varName = tokens[1];
+			writeInputStatement(varName, methodCode);
 		}
 
 		else if (tokens[0] == "NEWLINE")
@@ -219,18 +336,18 @@ int main(int argc, char** argv)
 				exit(EXIT_FAILURE);
 			}
 
-			codeSection << "CALL CRLF\n";
+			methodCode << "CALL CRLF\n";
 		}
 
 		else if (tokens[0] == "PAUSE")
 		{
-			if (!isValidPause(tokens, lineNumber))
+			if (!isValidPause(tokens, lineNumber, scopeStack.top()))
 			{
 				inputFile.close();
 				exit(EXIT_FAILURE);
 			}
 
-			codeSection << "CALL WaitMsg\n";
+			methodCode << "CALL WaitMsg\n";
 		}
 
 		else
@@ -241,9 +358,13 @@ int main(int argc, char** argv)
 		}
 	}
 
-	endProc("MAIN", codeSection);
-
 	inputFile.close();
+
+	if (!isMethodDefined("MAIN"))
+	{
+		std::cout << "ERROR: Main method is not defined. Program cannot be compiled." << std::endl;
+		exit(EXIT_FAILURE);
+	}
 
 	if (scopeStack.top() != "GLOBAL" || scopeStack.size() != 1)
 	{

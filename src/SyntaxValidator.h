@@ -13,9 +13,12 @@ bool isValidLet(const std::vector<std::string>&, const int&, const std::stack<st
 bool isValidSet(const std::vector<std::string>&, const int&, const std::stack<std::string>&);
 bool isValidInput(const std::vector<std::string>&, const int&, const std::stack<std::string>&);
 bool isValidIf(const std::vector<std::string>&, const int&, const std::stack<std::string>&);
-bool isValidElseIf(const std::vector<std::string>&, const int&, const std::stack<std::string>&);
 bool isValidEndIf(const std::vector<std::string>&, const int&, const std::string&, const int&);
-bool isValidPause(const std::vector<std::string>&, const int&);
+bool isValidMethod(const std::vector<std::string>&, const std::string&, const int&, const std::string&);
+bool isValidEndMethod(const std::vector<std::string>&, const int&, const std::string&);
+bool isValidCall(const std::vector<std::string>&, const std::string&, const int&, const std::stack<std::string>&);
+bool isValidReturn(const std::vector<std::string>&, const int&, const std::stack<std::string>&);
+bool isValidPause(const std::vector<std::string>&, const int&, const std::string&);
 bool isValidNewLine(const std::vector<std::string>&, const int&);
 bool isValidLogicalExpression(std::deque<std::string>, const int&);
 

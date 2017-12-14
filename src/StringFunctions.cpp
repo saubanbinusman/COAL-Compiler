@@ -150,7 +150,7 @@ std::deque<std::string> arithmetic_InfixToPostfix(const std::string& expression,
 
 		else
 		{
-			if (!isDefinedInAccessibleScopes(token, upperScopes))
+			if (!isVariableDefinedInAccessibleScopes(token, upperScopes))
 			{
 				std::cout << "ERROR @ Line " << line << ": Undefined variable used." << std::endl;
 				return std::deque<std::string>();
@@ -210,15 +210,7 @@ bool logical_IsLeftAssociative(const std::string& s)
 
 std::vector<std::string> logical_ExpressionTokenizer(const std::string& expression)
 {
-	std::vector<std::string> tokens;
-
-	std::regex r("\\(|\\)|[^\\s()]+");
-	for (auto it = std::sregex_iterator(expression.begin(), expression.end(), r); it != std::sregex_iterator(); it++)
-	{
-		tokens.push_back((*it).str());
-	}
-
-	return tokens;
+	return regexTokenize(expression, std::regex("\\(|\\)|[^\\s()]+"));
 }
 
 std::deque<std::string> logical_InfixToPostfix(const std::string& expression, const int& line, const std::stack<std::string>& upperScopes)
@@ -264,9 +256,9 @@ std::deque<std::string> logical_InfixToPostfix(const std::string& expression, co
 
 		else
 		{
-			if (!isDefinedInAccessibleScopes(token, upperScopes))
+			if (!isVariableDefinedInAccessibleScopes(token, upperScopes))
 			{
-				std::cout << "ERROR @ Line " << line << ": Undefined variable used => " << token << std::endl;
+				std::cout << "ERROR @ Line " << line << ": Undefined/Inaccessible variable used => " << token << std::endl;
 				return std::deque<std::string>();
 			}
 
@@ -300,12 +292,7 @@ std::deque<std::string> logical_InfixToPostfix(const std::string& expression, co
 
 bool isNumericValue(const std::string& token)
 {
-	for (const auto& c : token)
-	{
-		if (!isdigit(c)) return false;
-	}
-
-	return true;
+	return (std::regex_match(token, std::regex("^[+-]?\\d+")));
 }
 
 std::string removeSpaces(const std::string& s)
@@ -366,6 +353,18 @@ std::vector<std::string> tokenize(const std::string& line)
 		}
 
 		else current += line[i];
+	}
+
+	return tokens;
+}
+
+std::vector<std::string> regexTokenize(const std::string& line, const std::regex& format)
+{
+	std::vector<std::string> tokens;
+
+	for (auto it = std::sregex_iterator(line.begin(), line.end(), format); it != std::sregex_iterator(); it++)
+	{
+		tokens.push_back((*it).str());
 	}
 
 	return tokens;

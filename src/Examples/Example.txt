@@ -1,15 +1,20 @@
-LET x AS INTEGER
+METHOD sum TAKES x AS INTEGER, RETURNS INTEGER
+	LET retVal AS INTEGER
+	LET argToFunc AS INTEGER
+	
+	IF (x == 0)
+		RETURN 0
+	ELSE
+		SET argToFunc = x - 1
+		SET retVal = CALL sum(argToFunc)
+		SET retVal = retVal + x
+		RETURN retVal
+	ENDIF
+ENDMETHOD
 
-IF (10 < 9)
-    PRINTLINE "A"
-ELSE
-    IF (10 < 8)
-        PRINTLINE "B"
-    ELSE
-        IF (10 < 7)
-            PRINTLINE "C"
-        ELSE
-            PRINTLINE "D"
-        ENDIF
-    ENDIF
-ENDIF
+METHOD MAIN RETURNS NOTHING
+	LET finalValue AS INTEGER
+	SET finalValue = CALL sum(6)
+
+	PRINTLINE finalValue
+ENDMETHOD

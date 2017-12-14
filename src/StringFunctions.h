@@ -8,7 +8,7 @@
 #include <vector>
 #include <iostream>
 
-#include "VariablesMap.h"
+#include "DefinitionsMap.h"
 
 std::string toUpperCase(const std::string&);
 std::string removeLeadingSpace(const std::string&);
@@ -28,6 +28,7 @@ std::string removeSpaces(const std::string&);
 std::string removeBrackets(const std::string&);
 std::string removeSpacesAndBrackets(const std::string&);
 std::vector<std::string> tokenize(const std::string&);
+std::vector<std::string> regexTokenize(const std::string&, const std::regex&);
 std::string escapeQuoteLiteral(const std::string&);
 std::string filenameWithoutExt(char*);
 
