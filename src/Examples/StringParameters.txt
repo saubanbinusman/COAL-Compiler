@@ -1,0 +1,16 @@
+METHOD myMethod2 TAKES A AS STRING, RETURNS BOOLEAN
+	PRINTLINE A
+	RETURN FALSE
+ENDMETHOD
+
+METHOD myMethod1 RETURNS NOTHING
+	LET x AS STRING = "this is a string in method1"
+	CALL myMethod2(x)
+	PRINTLINE x
+ENDMETHOD
+
+METHOD MAIN RETURNS NOTHING
+	LET y AS STRING = "this is a string in main method"
+	CALL myMethod1
+	CALL myMethod2(y)
+ENDMETHOD

@@ -13,6 +13,12 @@
 
 int main(int argc, char** argv)
 {
+	std::cout  << "\n --- Pseudo Code Compiler ---\n";
+	std::cout <<    "         Developed By        \n";
+	std::cout <<    "       Sauban bin Usman      \n";
+	std::cout <<    "          Ammar Adeel        \n";
+	std::cout << std::endl;
+
 	if (argc != 3)
 	{
 		std::cout << "Wrong number of arguments provided. Usage: compiler <Source File> <Compiled Output>" << std::endl;
@@ -32,6 +38,8 @@ int main(int argc, char** argv)
 		std::cout << "ERROR: Cannot open reserved words file. Exiting ..." << std::endl;
 		exit(EXIT_FAILURE);
 	}
+
+	std::cout << " Reading   : " << argv[1] << std::endl;
 
 	std::stringstream dataSection;
 	std::stringstream codeSection;
@@ -53,7 +61,7 @@ int main(int argc, char** argv)
 	{
 		lineNumber++;
 
-		std::vector<std::string> tokens = tokenize(removeLeadingSpace(currLine));
+		std::vector<std::string> tokens = tokenize(removeLeadingAndTrailingSpaces(currLine));
 
 		if (tokens.empty() || tokens[0].empty() || tokens[0] == "COMMENT")
 		{
@@ -94,7 +102,12 @@ int main(int argc, char** argv)
 
 			if (tokens[3] == "STRING")
 			{
-				writeLetStatement(varName, escapeQuoteLiteral(tokens[5]), dataSection);
+				writeLetStatementForString(varName, escapeQuoteLiteral(tokens[5]), dataSection);
+			}
+
+			else if (scopeStack.top() == "GLOBAL")
+			{
+				writeLetStatementForGlobal(varName, tokens.size() == 6 ? tokens[5] : std::string(), dataSection);
 			}
 
 			else
@@ -130,7 +143,7 @@ int main(int argc, char** argv)
 				}
 
 				std::vector<std::string> callTokens = regexTokenize(value, std::regex("[^\\s(,)]+"));
-				writeCallStatement(callTokens[1], callTokens, methodCode);
+				writeCallStatement(callTokens[1], callTokens, methodCode, methodData);
 				writeSetStatementForCall(varName, methodCode);
 			}
 
@@ -241,13 +254,13 @@ int main(int argc, char** argv)
 
 		else if (tokens[0] == "METHOD")
 		{
-			if (!isValidMethod(tokens, removeLeadingSpace(currLine), lineNumber, scopeStack.top()))
+			if (!isValidMethod(tokens, removeLeadingAndTrailingSpaces(currLine), lineNumber, scopeStack.top()))
 			{
 				inputFile.close();
 				exit(EXIT_FAILURE);
 			}
 
-			std::vector<std::string> methodTokens = regexTokenize(removeLeadingSpace(currLine), std::regex("[^\\s,]+"));
+			std::vector<std::string> methodTokens = regexTokenize(removeLeadingAndTrailingSpaces(currLine), std::regex("[^\\s,]+"));
 			std::vector<Parameter> parametersList;
 
 			for (int i = 3; i < methodTokens.size() - 2; i += 3)
@@ -294,14 +307,14 @@ int main(int argc, char** argv)
 
 		else if (tokens[0] == "CALL")
 		{
-			if (!isValidCall(tokens, removeLeadingSpace(currLine), lineNumber, scopeStack))
+			if (!isValidCall(tokens, removeLeadingAndTrailingSpaces(currLine), lineNumber, scopeStack))
 			{
 				inputFile.close();
 				exit(EXIT_FAILURE);
 			}
 
-			const std::vector<std::string>& callTokens = regexTokenize(removeLeadingSpace(currLine), std::regex("[^\\s(,)]+"));
-			writeCallStatement(callTokens[1], callTokens, methodCode);
+			const std::vector<std::string>& callTokens = regexTokenize(removeLeadingAndTrailingSpaces(currLine), std::regex("[^\\s(,)]+"));
+			writeCallStatement(callTokens[1], callTokens, methodCode, methodData);
 		}
 
 		else if (tokens[0] == "RETURN")
@@ -372,20 +385,28 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
+	std::cout << " Writing   : " << (filenameWithoutExt(argv[1]) + ".asm") << std::endl;
 	writeAsmToFile((filenameWithoutExt(argv[1]) + ".asm").c_str(), dataSection, codeSection);
 
-	system(("Assembler\\ml /c /nologo /Fo\"" + filenameWithoutExt(argv[1]) + ".obj\" /I \"Library\\Irvine\" " + filenameWithoutExt(argv[1]) + ".asm").c_str());
-	std::cout << " Linking: " + filenameWithoutExt(argv[1]) + ".obj irvine32.lib kernel32.lib user32.lib" << std::endl;
-	system(("Linker\\link /OUT:\"" + filenameWithoutExt(argv[2]) + ".exe\" \"irvine32.lib\" \"kernel32.lib\" \"user32.lib\" /NOLOGO /SUBSYSTEM:CONSOLE /LIBPATH:\"Library\\Irvine\" " + filenameWithoutExt(argv[1]) + ".obj").c_str());
-	std::cout << " Saving: " + filenameWithoutExt(argv[2]) + ".exe" << std::endl;
-	std::cout << " Deleting: " + filenameWithoutExt(argv[1]) + ".obj" << std::endl;
+	int success;
+
+	success = system(("Assembler\\ml /c /nologo /Fo\"" + filenameWithoutExt(argv[1]) + ".obj\" /I \"Library\\Irvine\" " + filenameWithoutExt(argv[1]) + ".asm").c_str());
+	if (success != EXIT_SUCCESS)
+	{
+		exit(EXIT_FAILURE);
+	}
+	std::cout << " Assembled : " << (filenameWithoutExt(argv[1]) + ".obj") << std::endl;
+
+	std::cout << " Linking   : " + filenameWithoutExt(argv[1]) + ".obj irvine32.lib kernel32.lib user32.lib" << std::endl;
+	success = system(("Linker\\link /OUT:\"" + filenameWithoutExt(argv[2]) + ".exe\" \"irvine32.lib\" \"kernel32.lib\" \"user32.lib\" /NOLOGO /SUBSYSTEM:CONSOLE /LIBPATH:\"Library\\Irvine\" " + filenameWithoutExt(argv[1]) + ".obj").c_str());
+	if (success != EXIT_SUCCESS)
+	{
+		exit(EXIT_FAILURE);
+	}
+	std::cout << " Linked    : " << filenameWithoutExt(argv[2]) + ".exe" << std::endl;
+
+	std::cout << " Deleting  : " + filenameWithoutExt(argv[1]) + ".obj" << std::endl;
 	system(("del " +  filenameWithoutExt(argv[1]) + ".obj").c_str());
-
-	std::cout << "\n DONE!" << std::endl;
-
-	// Runs the compiled executable
-	//std::cout << "\n\n";
-	//system("out.exe");
 
 	return 0;
 }

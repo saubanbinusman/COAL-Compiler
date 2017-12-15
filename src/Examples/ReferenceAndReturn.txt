@@ -1,0 +1,27 @@
+LET originalValue AS INTEGER
+
+METHOD myMethod2 TAKES A AS STRING, B AS INTEGER REF, RETURNS BOOLEAN
+	PRINT A
+	INPUT B
+	LET retVal AS BOOLEAN
+	SET retVal = (B != originalValue)
+	RETURN retVal
+ENDMETHOD
+
+METHOD myMethod1 RETURNS NOTHING
+	LET prompt AS STRING = "Enter a value: "
+	LET x AS INTEGER = 500
+	SET originalValue = x
+	LET isChanged AS BOOLEAN
+	SET isChanged = CALL myMethod2(prompt, x)
+	PRINTLINE x
+	IF (isChanged)
+		PRINTLINE "CHANGED"
+	ELSE
+		PRINTLINE "NOT CHANGED"
+	ENDIF
+ENDMETHOD
+
+METHOD MAIN RETURNS NOTHING
+	CALL myMethod1
+ENDMETHOD

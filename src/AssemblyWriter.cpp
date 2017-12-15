@@ -72,9 +72,39 @@ void writeLetStatement(const std::string& varName, const std::string& size, cons
 	dataInitial << "MOV " << varName << ", " << initialValue << "\n";
 }
 
-void writeLetStatement(const std::string& varName, const std::string& value, std::stringstream& dataSection)
+void writeLetStatementForString(const std::string& varName, const std::string& value, std::stringstream& dataSection)
 {
 	dataSection << varName << " BYTE " << value << ", 0\n";
+}
+
+void writeLetStatementForGlobal(const std::string& varName, const std::string& value, std::stringstream& dataSection)
+{
+	dataSection << varName << " " << getASMDataSize(getTypeFromEnum(getVariableType(varName))) << " ";
+
+	if (value.empty())
+	{
+		switch (getVariableType(varName))
+		{
+			case BooleanType:
+				dataSection << "FALSE";
+				break;
+
+			case CharacterType:
+				dataSection << "'A'";
+				break;
+
+			case IntegerType:
+				dataSection << "0";
+				break;
+		}
+	}
+
+	else
+	{
+		dataSection << value;
+	}
+
+	dataSection << "\n";
 }
 
 void writeSetStatementForChar(const std::string& varName, const std::string& value, std::stringstream& codeSection)
@@ -408,13 +438,13 @@ void writeReturnStatement(const std::string& methodName, const std::string& valu
 		{
 			case BooleanType:
 				codeSection << "XOR EDX, EDX\n";
-				codeSection << "MOV DL, " << value;
+				codeSection << "MOV DL, " << value << "\n";
 				codeSection << "MOV ESI, EDX\n";
 				break;
 
 			case CharacterType:
 				codeSection << "XOR EDX, EDX\n";
-				codeSection << "MOV DL, " << value;
+				codeSection << "MOV DL, " << value << "\n";
 				codeSection << "MOV ESI, EDX\n";
 				break;
 
@@ -427,15 +457,18 @@ void writeReturnStatement(const std::string& methodName, const std::string& valu
 	}
 }
 
-void writeCallStatement(const std::string& methodName, const std::vector<std::string>& callTokens, std::stringstream& codeSection)
+void writeCallStatement(const std::string& methodName, const std::vector<std::string>& callTokens, std::stringstream& codeSection, std::stringstream& methodData)
 {
-	codeSection << "INVOKE " << methodName;
+	std::stringstream code;
+
+	code << "INVOKE " << methodName;
 
 	if (callTokens.size() > 2)
 	{
-		codeSection << ", ";
+		code << ", ";
 
 		const std::vector<Parameter>& params = getMethodParameters(methodName);
+		int specialCaseCount = 0;
 
 		for (int i = 2; i < callTokens.size(); i++)
 		{
@@ -444,54 +477,94 @@ void writeCallStatement(const std::string& methodName, const std::vector<std::st
 			{
 				if (getVariableObject(callTokens[i]).reference && params[i - 2].reference)
 				{
-					codeSection << callTokens[i];
+					code << callTokens[i];
 				}
 
 				else if (getVariableObject(callTokens[i]).reference && !params[i - 2].reference)
 				{
+					if (getVariableType(callTokens[i]) == StringType)
+					{
+						code << callTokens[i];
+					}
 
+					else
+					{
+						specialCaseCount++;
+						methodData << "LOCAL " << ("__specialCaseVariable" + std::to_string(specialCaseCount)) << ":" << getASMDataSize(getTypeFromEnum(getVariableObject(callTokens[i]).type)) << "\n";
+						codeSection << "MOV EBX, " << callTokens[i] << "\n";
+						codeSection << "XOR EAX, EAX\n";
+
+						switch (getVariableType(callTokens[i]))
+						{
+							case BooleanType:
+								codeSection << "MOV AL, [EBX]\n";
+								codeSection << "MOV __specialCaseVariable" << specialCaseCount << ", AL\n";
+								break;
+
+							case CharacterType:
+								codeSection << "MOV AL, [EBX]\n";
+								codeSection << "MOV __specialCaseVariable" << specialCaseCount << ", AL\n";
+								break;
+
+							case IntegerType:
+								codeSection << "MOV EAX, [EBX]\n";
+								codeSection << "MOV __specialCaseVariable" << specialCaseCount << ", EAX\n";
+								break;
+						}
+					}
 				}
 
 				else if (!getVariableObject(callTokens[i]).reference && params[i - 2].reference)
 				{
-					codeSection << "ADDR " << callTokens[i];
+					code << "ADDR " << callTokens[i];
 				}
 
 				else
 				{
-					codeSection << callTokens[i];
+					if (getVariableType(callTokens[i]) == StringType) code << "ADDR " << callTokens[i];
+					else code << callTokens[i];
 				}
 			}
 
 			else
 			{
-				codeSection << callTokens[i];
+				code << callTokens[i];
 			}
 
-			if (i != callTokens.size() - 1) codeSection << ", ";
+			if (i != callTokens.size() - 1) code << ", ";
 		}
 	}
 
-	codeSection << "\n";
+	code << "\n";
+	codeSection << code.str();
 }
 
 void writeInputStatement(const std::string& varName, std::stringstream& codeSection)
 {
-	switch(getVariableType(varName))
+	switch (getVariableType(varName))
 	{
 		case IntegerType:
 			codeSection << "CALL ReadInt\n";
-			codeSection << "MOV " << varName << ", EAX\n";
+
+			if (getVariableObject(varName).reference)
+			{
+				codeSection << "MOV EBX, " << varName << "\n";
+				codeSection << "MOV [EBX], EAX\n";
+			}
+
+			else codeSection << "MOV " << varName << ", EAX\n";
 			break;
 
 		case CharacterType:
-			// TODO: To allow data to be shown when being input, use following when possible
-			// codeSection << "MOV ECX, 1\n";
-			// codeSection << "MOV EDX, OFFSET " << varName << "\n";
-			// codeSection << "CALL ReadString\n";
-
 			codeSection << "CALL ReadChar\n";
-			codeSection << "MOV " << varName << ", AL\n";
+
+			if (getVariableObject(varName).reference)
+			{
+				codeSection << "MOV EBX, " << varName << "\n";
+				codeSection << "MOV [EBX], AL\n";
+			}
+
+			else codeSection << "MOV " << varName << ", AL\n";
 			break;
 
 		case BooleanType:
@@ -500,7 +573,14 @@ void writeInputStatement(const std::string& varName, std::stringstream& codeSect
 			codeSection << "LAHF\n"; // Load flags into AH (ZF = 6th bit (starting from 0th bit from right to left))
 			codeSection << "SHR AH, 6\n";
 			codeSection << "AND AH, 1\n";
-			codeSection << "MOV " << varName << ", AH\n";
+
+			if (getVariableObject(varName).reference)
+			{
+				codeSection << "MOV EBX, " << varName << "\n";
+				codeSection << "MOV [EBX], AH\n";
+			}
+
+			else codeSection << "MOV " << varName << ", AH\n";
 			break;
 	}
 }

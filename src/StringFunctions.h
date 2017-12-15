@@ -11,7 +11,7 @@
 #include "DefinitionsMap.h"
 
 std::string toUpperCase(const std::string&);
-std::string removeLeadingSpace(const std::string&);
+std::string removeLeadingAndTrailingSpaces(const std::string&);
 bool arithmetic_IsOperator(const std::string&);
 int arithmetic_GetPrecedence(const std::string&);
 bool arithmetic_IsLeftAssociative(const std::string&);

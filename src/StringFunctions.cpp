@@ -12,22 +12,34 @@ std::string toUpperCase(const std::string& str)
 	return final;
 }
 
-std::string removeLeadingSpace(const std::string& str)
+bool isWhiteSpace(const char& c)
 {
-	int lineIt;
-	for (lineIt = 0; lineIt < str.size(); lineIt++)
+	return (c == '\t' || c == ' ' || c == '\n' || c == '\r');
+}
+
+bool isWhiteSpace(const std::string& s)
+{
+	for (const auto& c : s)
 	{
-		const char& c = str[lineIt];
-		if (c == '\t' || c == ' ' || c == '\n' || c == '\r') continue;
-		break;
+		if (!isWhiteSpace(c)) return false;
 	}
+
+	return true;
+}
+
+std::string removeLeadingAndTrailingSpaces(const std::string& str)
+{
+	if (str.empty()) return str;
+
+	unsigned int left = 0, right = str.size() - 1;
+
+	while (left < str.size() && isWhiteSpace(str[left])) left++;
+	while (right >= left && isWhiteSpace(str[right])) right--;
 
 	std::string trimmedLine;
-
-	for ( ; lineIt < str.size(); lineIt++)
-	{
-		trimmedLine += str[lineIt];
-	}
+	trimmedLine.reserve(right - left + 2);
+	while (left <= right) trimmedLine += str[left++];
+	trimmedLine.shrink_to_fit();
 
 	return trimmedLine;
 }
@@ -346,9 +358,9 @@ std::vector<std::string> tokenize(const std::string& line)
 		if (line[i] == '"') inString = !inString;
 		if ((!inString && line[i] == ' ') || i == line.size() - 1)
 		{
-			if (i == line.size() - 1) current += line[i];
+			if (i == line.size() - 1 && !isWhiteSpace(line[i])) current += line[i];
 
-			tokens.push_back(current);
+			if (!current.empty() && !isWhiteSpace(current)) tokens.push_back(current);
 			current.clear();
 		}
 

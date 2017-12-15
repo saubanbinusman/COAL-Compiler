@@ -163,7 +163,7 @@ bool isValidSet(const std::vector<std::string>& tokens, const int& line, const s
 			callLine += " " + tokens[i];
 		}
 
-		if (!isValidCall(tokenize(removeLeadingSpace(callLine)), removeLeadingSpace(callLine), line, upperScopes))
+		if (!isValidCall(tokenize(removeLeadingAndTrailingSpaces(callLine)), removeLeadingAndTrailingSpaces(callLine), line, upperScopes))
 		{
 			return false;
 		}
@@ -186,16 +186,16 @@ bool isValidSet(const std::vector<std::string>& tokens, const int& line, const s
 				return false;
 			}
 
-			if (tokens[5][0] != '\'')
+			if (tokens[3][0] != '\'')
 			{
-				if (!isVariableDefinedInAccessibleScopes(tokens[5], upperScopes))
+				if (!isVariableDefinedInAccessibleScopes(tokens[3], upperScopes))
 				{
 					std::cout << "Variable is not accessible in current scope OR is not declared." << std::endl;
 					return false;
 				}
 			}
 
-			else if (!std::regex_match(tokens[5], std::regex("^'[\\x20-\\x7E]'")))
+			else if (!std::regex_match(tokens[3], std::regex("^'[\\x20-\\x7E]'")))
 			{
 				std::cout << "ERROR @ Line " << line << ": Invalid Character literal." << std::endl;
 				return false;
@@ -380,7 +380,7 @@ bool isValidCall(const std::vector<std::string>& tokens, const std::string& comp
 		return false;
 	}
 
-	const std::vector<std::string>& callTokens = regexTokenize(removeLeadingSpace(completeLine), std::regex("[^\\s(,)]+"));
+	const std::vector<std::string>& callTokens = regexTokenize(removeLeadingAndTrailingSpaces(completeLine), std::regex("[^\\s(,)]+"));
 	const std::vector<Parameter>& params = getMethodParameters(callTokens[1]);
 
 	if (params.size() != callTokens.size() - 2)
@@ -401,7 +401,7 @@ bool isValidCall(const std::vector<std::string>& tokens, const std::string& comp
 		{
 			if (params[i - 2].type != getVariableObject(callTokens[i]).type)
 			{
-				std::cout << "ERROR @ Line " << line << ": Data Types did not match." << std::endl;
+				std::cout << "ERROR @ Line " << line << ": Data Types did not match. Required: " << getTypeFromEnum(params[i - 2].type) << ", Supplied: " << getTypeFromEnum(getVariableType(callTokens[i])) << std::endl;
 				return false;
 			}
 		}
@@ -414,9 +414,15 @@ bool isValidCall(const std::vector<std::string>& tokens, const std::string& comp
 				return false;
 			}
 
+			if (getEnumFromValue(callTokens[i]) == UndefinedType)
+			{
+				std::cout << "ERROR @ Line " << line << ": Variable is already defined elsewhere and is unusable in this scope." << std::endl;
+				return false;
+			}
+
 			if (params[i - 2].type != getEnumFromValue(callTokens[i]))
 			{
-				std::cout << "ERROR @ Line " << line << ": Data Types did not match." << std::endl;
+				std::cout << "ERROR @ Line " << line << ": Data Types did not match. Required: " << getTypeFromEnum(params[i - 2].type) << ", Supplied: " << getTypeFromEnum(getEnumFromValue(callTokens[i])) << std::endl;
 				return false;
 			}
 		}
@@ -446,39 +452,42 @@ bool isValidReturn(const std::vector<std::string>& tokens, const int& line, cons
 		return false;
 	}
 
-	if (getMethodReturnType(getMethodInCurrentScope(upperScopes)) == UndefinedType && tokens.size() == 2)
+	if (tokens.size() == 2)
 	{
-		std::cout << "ERROR @ Line " << line << ": Cannot RETURN data from a METHOD which returns NOTHING." << std::endl;
-		return false;
-	}
-
-	if (isNumericValue(tokens[1]) || !isVariableDefinedInAccessibleScopes(tokens[1], upperScopes))
-	{
-		if (getEnumFromValue(tokens[1]) == UndefinedType || getEnumFromValue(tokens[1]) == StringType)
+		if (getMethodReturnType(getMethodInCurrentScope(upperScopes)) == UndefinedType)
 		{
-			std::cout << "ERROR @ Line " << line << ": Invalid data. Can only return a variable or a literal (excluding STRING type)." << std::endl;
+			std::cout << "ERROR @ Line " << line << ": Cannot RETURN data from a METHOD which returns NOTHING." << std::endl;
 			return false;
 		}
 
-		if (getEnumFromValue(tokens[1]) != getMethodReturnType(getMethodInCurrentScope(upperScopes)))
+		if (isNumericValue(tokens[1]) || !isVariableDefinedInAccessibleScopes(tokens[1], upperScopes))
 		{
-			std::cout << "ERROR @ Line " << line << ": Invalid data. Data type did not match the method return type." << std::endl;
-			return false;
-		}
-	}
+			if (getEnumFromValue(tokens[1]) == UndefinedType || getEnumFromValue(tokens[1]) == StringType)
+			{
+				std::cout << "ERROR @ Line " << line << ": Invalid data. Can only return a variable or a literal (excluding STRING type)." << std::endl;
+				return false;
+			}
 
-	else
-	{
-		if (getVariableType(tokens[1]) != getMethodReturnType(getMethodInCurrentScope(upperScopes)))
-		{
-			std::cout << "ERROR @ Line " << line << ": Invalid data. Data type did not match the method return type." << std::endl;
-			return false;
+			if (getEnumFromValue(tokens[1]) != getMethodReturnType(getMethodInCurrentScope(upperScopes)))
+			{
+				std::cout << "ERROR @ Line " << line << ": Invalid data. Data type did not match the method return type." << std::endl;
+				return false;
+			}
 		}
 
-		if (getVariableType(tokens[1]) == StringType)
+		else
 		{
-			std::cout << "ERROR @ Line " << line << ": Cannot return STRING type data." << std::endl;
-			return false;
+			if (getVariableType(tokens[1]) != getMethodReturnType(getMethodInCurrentScope(upperScopes)))
+			{
+				std::cout << "ERROR @ Line " << line << ": Invalid data. Data type did not match the method return type." << std::endl;
+				return false;
+			}
+
+			if (getVariableType(tokens[1]) == StringType)
+			{
+				std::cout << "ERROR @ Line " << line << ": Cannot return STRING type data." << std::endl;
+				return false;
+			}
 		}
 	}
 
